@@ -1,0 +1,164 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2772946766225769400
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6130422349106678843}
+  - component: {fileID: 1511878173813636436}
+  m_Layer: 0
+  m_Name: Play Area
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6130422349106678843
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2772946766225769400}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 823666154800626320}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1511878173813636436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2772946766225769400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c7221e0c9d59b14c8f139fdffa855ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  leftController: {fileID: 0}
+  rightController: {fileID: 0}
+  camera: {fileID: 0}
+  cameraRig: {fileID: 0}
+  playAreaHeight: 3
+  headsetsWithOwnPlayArea:
+  - Oculus Quest
+  - Vive Elite
+  - Focus3
+  - Pico Neo
+  - Miramar
+  - PICO 4
+  leftControllerDetectionDistance: 0.01
+  rightControllerDetectionDistance: 0.01
+  standingModePlayAreaSize: 1.6
+  minDistanceToStartShowCell: 0.4
+  minDistanceToStartShowTextureInsideCell: 0.05
+  offsetDistance: 0.25
+  outOfBoundsArea: {fileID: 7718487755673180564}
+  playAreaCenterThreshold: 0.5
+  renderPlayAreaBoundsWhenOutOfBounds: 0
+  renderPostProcessingWhenOutOfBounds: 0
+  safeZoneWidth: 0.7
+  safeZoneDepth: 0.7
+  minControllersVelocityToAffectTheGrid: 0.2
+  maxControllersVelocityDetectionDistance: 0.2
+  overrideCheckingMode: 0
+  skipSDKInitialization: 0
+  OnPlayAreaReady:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPlayerOutOfBounds:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPlayerInBounds:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1001 &6646553574219422800
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6130422349106678843}
+    m_Modifications:
+    - target: {fileID: 3972420040756135364, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_Name
+      value: Visuals
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 575a2f7a964d6054cacb922491586690, type: 3}
+--- !u!4 &823666154800626320 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6292387682451760832, guid: 575a2f7a964d6054cacb922491586690,
+    type: 3}
+  m_PrefabInstance: {fileID: 6646553574219422800}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &7718487755673180564 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3972420040756135364, guid: 575a2f7a964d6054cacb922491586690,
+    type: 3}
+  m_PrefabInstance: {fileID: 6646553574219422800}
+  m_PrefabAsset: {fileID: 0}

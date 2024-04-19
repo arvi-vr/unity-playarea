@@ -1,0 +1,193 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-6378417735845328700
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 9
+--- !u!114 &-5500805682085818583
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 639247ca83abc874e893eb93af2b5e44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 0
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ARVI Play Area Material
+  m_Shader: {fileID: -6465566751694194690, guid: 9bea9402e592b6d4788b5ebd6679ad45,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _SURFACE_TYPE_TRANSPARENT
+  m_InvalidKeywords:
+  - _RECEIVE_SHADOWS_OFF
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 3000
+  stringTagMap:
+    RenderType: Transparent
+  disabledShaderPasses:
+  - DepthOnly
+  - SHADOWCASTER
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _CellTexture:
+        m_Texture: {fileID: 2800000, guid: cab303eaa10650345a4af405bde65832, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _GridTex:
+        m_Texture: {fileID: 2800000, guid: f7e771efa548609429de48683f708a22, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _InsideCellTexture:
+        m_Texture: {fileID: 2800000, guid: 6a1a1b43dcf4999459e24a2241933eea, type: 3}
+        m_Scale: {x: -1, y: 1}
+        m_Offset: {x: 1, y: 0}
+    - _InsideCellTexture2:
+        m_Texture: {fileID: 2800000, guid: 00a86d722392d174998711a70650d95d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0.75}
+    - _InsideCellTexture3:
+        m_Texture: {fileID: 2800000, guid: 67aa4630c2f940248a942aea8daa7ffb, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: -0.75}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 8ce8528bd10e632479148a5bdcfb29a4, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SecondTexture:
+        m_Texture: {fileID: 2800000, guid: 0425dc70ec20fb7499f8648b4fc407fc, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Stop_Texture:
+        m_Texture: {fileID: 2800000, guid: bc3d0e04af84b1b4d91e50b185d0801c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Texture2D:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
+    - _AnimationSpeed: 0.01
+    - _AspectHeight: 1
+    - _AspectWidth: 1
+    - _BUILTIN_AlphaClip: 0
+    - _BUILTIN_Blend: 0
+    - _BUILTIN_CullMode: 0
+    - _BUILTIN_DstBlend: 0
+    - _BUILTIN_QueueControl: -1
+    - _BUILTIN_QueueOffset: 0
+    - _BUILTIN_SrcBlend: 1
+    - _BUILTIN_Surface: 0
+    - _BUILTIN_ZTest: 4
+    - _BUILTIN_ZWrite: 1
+    - _BUILTIN_ZWriteControl: 0
+    - _Blend: 0
+    - _BlendModePreserveSpecular: 0
+    - _BorderDownWidth: 0
+    - _BorderUpWidth: 0
+    - _BorderWidth: 0.135
+    - _CastShadows: 0
+    - _CellTextureSize: 0
+    - _Cull: 0
+    - _Dot: -1
+    - _DstBlend: 10
+    - _EnableBorder: 0
+    - _FadeDistance: 0.01
+    - _GridAlphaMultiplayer: 1
+    - _HeadDistanceToStartSecondTexture: 1
+    - _InsideCellTextureAlpha: 0
+    - _LeftControllerSphereHardness: 0.75
+    - _LeftControllerSphereRadius: 0.0100003425
+    - _Line_Thickness: 0.02
+    - _Line_Width: 0.02
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    - _RadiusZMultiplayer: 0
+    - _ReceiveShadows: 0
+    - _RightControllerSphereHardness: 0.75
+    - _RightControllerSphereRadius: 0.0100003425
+    - _SecondTextureSize: 1
+    - _SphereHardness: 0.154
+    - _SphereRadius: 0.01
+    - _SphereRadiusHelm: 0.01
+    - _SrcBlend: 5
+    - _Surface: 1
+    - _WorkflowMode: 1
+    - _ZTest: 4
+    - _ZWrite: 0
+    - _ZWriteControl: 0
+    m_Colors:
+    - _AnimationColor: {r: 0, g: 1, b: 0.9367821, a: 1}
+    - _BorderColor: {r: 0, g: 0.030314207, b: 1, a: 1}
+    - _CellTextureColor: {r: 1, g: 0, b: 0, a: 1}
+    - _CellTextureOffset: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _CellTexturePivotOffset: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _CellTextureTilling: {r: 64, g: 60, b: 0, a: 0}
+    - _ClosestSideDirection: {r: -1, g: 0, b: -0, a: 0}
+    - _Color: {r: 1, g: 0.05694356, b: 0, a: 1}
+    - _GridBaseColor: {r: 1, g: 0, b: 0, a: 1}
+    - _GridTilling: {r: 32, g: 30, b: 0, a: 0}
+    - _HeadNearDirection: {r: 0, g: -0, b: 1, a: 0}
+    - _HeadPosition: {r: 0, g: 0, b: 0, a: 0}
+    - _HeadsetDirection: {r: -0.85977906, g: -0.048066944, b: 0.50839907, a: 0}
+    - _HeadsetPosition: {r: -0.9322535, g: 1.0551498, b: -0.3324163, a: 0}
+    - _InsideCellTexturesOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _InsideCellTilling: {r: -32, g: 30, b: 0, a: 0}
+    - _LeftControllerPosition: {r: 0, g: 0.125, b: 0, a: 0}
+    - _LeftHandPosition: {r: 0, g: 0, b: 0, a: 0}
+    - _ObjectPositionFirst: {r: 0.796, g: 1.337, b: 0.856, a: 0}
+    - _ObjectPositionSecond: {r: 0, g: 1, b: 0, a: 0}
+    - _ObjectPositionThird: {r: 0, g: 1, b: 0, a: 0}
+    - _PivotOffset: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _RightControllerPosition: {r: 0, g: 0.125, b: 0, a: 0}
+    - _RightHandPosition: {r: 0, g: 0, b: 0, a: 0}
+    - _Scale: {r: 1, g: 1, b: 0, a: 0}
+    - _SecondTextureColor: {r: 1, g: 0, b: 0, a: 0}
+    - _SecondTextureOffset: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _SecondTexturePivotOffset: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _SecondTextureTilling: {r: 10, g: 10, b: 0, a: 0}
+    - _Tiling: {r: 8, g: 8, b: 0, a: 0}
+    - _Tilling: {r: -5, g: 5, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
