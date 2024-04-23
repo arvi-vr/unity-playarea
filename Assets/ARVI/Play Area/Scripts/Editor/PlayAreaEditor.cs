@@ -60,47 +60,46 @@ namespace ARVI.PlayArea
             DrawDefaultInspector();
         }
 
-        private bool HasDefine(string define, BuildTargetGroup targetGroup)
+        private static bool HasDefine(string define, BuildTargetGroup targetGroup)
         {
 #if UNITY_2021_2_OR_NEWER
             var namedBuildTarget = NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            string currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
+            var currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
 #else
-			string currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
+			var currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
 #endif
             return currentDefines.Contains(define);
         }
 
-        private void ModifyDefines(string[] definesToRemove, string[] definesToSet, BuildTargetGroup targetGroup)
+        private static void ModifyDefines(string[] definesToRemove, string[] definesToSet, BuildTargetGroup targetGroup)
         {
 #if UNITY_2021_2_OR_NEWER
             var namedBuildTarget = NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            string currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
+            var currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
 #else
-			string currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
+			var currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
 #endif
-            for (int i = 0; i < definesToRemove.Length; ++i)
+            for (var i = 0; i < definesToRemove.Length; ++i)
             {
                 var define = definesToRemove[i];
                 if (currentDefines.Contains(define))
                     currentDefines = currentDefines.Replace(define + ";", "").Replace(";" + define, "").Replace(define, "");
             }
 
-            for (int i = 0; i < definesToSet.Length; ++i)
+            for (var i = 0; i < definesToSet.Length; ++i)
             {
                 var define = definesToSet[i];
-                if (!currentDefines.Contains(define))
+                if (currentDefines.Contains(define))
+                    continue;
+                if (string.IsNullOrEmpty(currentDefines))
                 {
-                    if (string.IsNullOrEmpty(currentDefines))
-                    {
-                        currentDefines = define;
-                    }
-                    else
-                    {
-                        if (!currentDefines[currentDefines.Length - 1].Equals(';'))
-                            currentDefines += ';';
-                        currentDefines += define;
-                    }
+                    currentDefines = define;
+                }
+                else
+                {
+                    if (!currentDefines[currentDefines.Length - 1].Equals(';'))
+                        currentDefines += ';';
+                    currentDefines += define;
                 }
             }
 

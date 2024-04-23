@@ -138,7 +138,7 @@ Material:
     - _HeadDistanceToStartSecondTexture: 1
     - _InsideCellTextureAlpha: 0
     - _LeftControllerSphereHardness: 0.75
-    - _LeftControllerSphereRadius: 0.0100003425
+    - _LeftControllerSphereRadius: 0.01
     - _Line_Thickness: 0.02
     - _Line_Width: 0.02
     - _QueueControl: 0
@@ -146,7 +146,7 @@ Material:
     - _RadiusZMultiplayer: 0
     - _ReceiveShadows: 0
     - _RightControllerSphereHardness: 0.75
-    - _RightControllerSphereRadius: 0.0100003425
+    - _RightControllerSphereRadius: 0.01
     - _SecondTextureSize: 1
     - _SphereHardness: 0.154
     - _SphereRadius: 0.01
@@ -170,8 +170,8 @@ Material:
     - _GridTilling: {r: 32, g: 30, b: 0, a: 0}
     - _HeadNearDirection: {r: 0, g: -0, b: 1, a: 0}
     - _HeadPosition: {r: 0, g: 0, b: 0, a: 0}
-    - _HeadsetDirection: {r: -0.85977906, g: -0.048066944, b: 0.50839907, a: 0}
-    - _HeadsetPosition: {r: -0.9322535, g: 1.0551498, b: -0.3324163, a: 0}
+    - _HeadsetDirection: {r: -0.6650941, g: 0.042446837, b: 0.74555224, a: 0}
+    - _HeadsetPosition: {r: -0.94056463, g: 0.97727084, b: -0.38489747, a: 0}
     - _InsideCellTexturesOffset: {r: 0, g: 0, b: 0, a: 0}
     - _InsideCellTilling: {r: -32, g: 30, b: 0, a: 0}
     - _LeftControllerPosition: {r: 0, g: 0.125, b: 0, a: 0}

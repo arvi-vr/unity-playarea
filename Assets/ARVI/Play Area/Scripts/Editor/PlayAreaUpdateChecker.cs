@@ -32,7 +32,7 @@
 
             public static VersionInfo FromJSON(string json)
             {
-                VersionInfo versionInfo = JsonUtility.FromJson<VersionInfo>(json);
+                var versionInfo = JsonUtility.FromJson<VersionInfo>(json);
                 versionInfo.version = new System.Version(versionInfo.tag_name);
                 versionInfo.publishedDateTime = DateTime.Parse(versionInfo.published_at);
                 versionInfo.changes = versionInfo.body;
@@ -70,9 +70,9 @@
         public const string SHOULD_CHECK_UPDATES_KEY = "ARVI.PlayArea.CheckUpdates";
 
 #if UNITY_2017_4_OR_NEWER
-        static UnityWebRequest versionInfoRequest;
+        private static UnityWebRequest versionInfoRequest;
 #else
-        static WWW versionInfoRequest;
+        private static WWW versionInfoRequest;
 #endif
 
         public static DateTime LastCheckTime
@@ -130,13 +130,13 @@
             EditorApplication.update += UpdateCheckLoop;
         }
 
-        static void UpdateCheckLoop()
+        private static void UpdateCheckLoop()
         {
             if (!ShouldCheckForUpdates || !CheckForUpdates())
                 EditorApplication.update -= UpdateCheckLoop;
         }
 
-        static bool CheckForUpdates()
+        private static bool CheckForUpdates()
         {
             if (versionInfoRequest != null && versionInfoRequest.isDone)
             {
@@ -170,7 +170,7 @@
             return versionInfoRequest != null;
         }
 
-        static void HandleVersionInfoResponse(string data)
+        private static void HandleVersionInfoResponse(string data)
         {
             var versionInfo = VersionInfo.FromJSON(data);
             var latestVersion = versionInfo.version;
@@ -187,7 +187,7 @@
         }
 
         [MenuItem("ARVI/Play Area/Check For Update", false, 102)]
-        static void ManualUpdateCheck()
+        private static void ManualUpdateCheck()
         {
             if (versionInfoRequest == null)
             {

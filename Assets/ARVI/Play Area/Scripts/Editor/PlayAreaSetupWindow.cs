@@ -2,13 +2,13 @@
 {
     using System;
     using System.Text;
-#if !UNITY_2020_1_OR_NEWER
-using System;
-using System.Reflection;
-using System.Linq;
+#if UNITY_2020_1_OR_NEWER
+    using UnityEditor.Build;
+#else
+    using System.Reflection;
+    using System.Linq;
 #endif
     using UnityEditor;
-    using UnityEditor.Build;
     using UnityEngine;
 
     public class PlayAreaSetupWindow : EditorWindow
@@ -153,13 +153,16 @@ using System.Linq;
 #if UNITY_4_6 || UNITY_5_0
             GUILayout.Label("2. For the Play Area to work correctly, an additional layer is required.\nClick \"Setup Layer\" to configure it automatically.");
 #else
-            GUILayout.Label(new GUIContent("2. For the Play Area to work correctly, an additional layer is required.\nClick \"Setup Layer\" to configure it automatically."));
+            GUILayout.Label(new GUIContent("2. To disable rendering of the game world when leaving the playe area,\n" +
+                "you need to configure an additional layer. Click \"Setup Layer\" to configure\n" +
+                "it automatically or do nothing if you want to use your custom behavior\n" +
+                "when leaving the play area."));
 #endif
             GUILayout.Space(10f);
 
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            Color originalColor = GUI.backgroundColor;
+            var originalColor = GUI.backgroundColor;
             GUI.backgroundColor = new Color(0.5f, 0.5f, 1f);            
             if (GUILayout.Button("Setup Layer", GUILayout.Height(30), GUILayout.MaxWidth(150)))
                 SetupLayer();
@@ -168,33 +171,33 @@ using System.Linq;
             GUI.backgroundColor = originalColor;
         }
 
-        private bool HasDefine(string define, BuildTargetGroup targetGroup)
+        private static bool HasDefine(string define, BuildTargetGroup targetGroup)
         {
 #if UNITY_2021_2_OR_NEWER
             var namedBuildTarget = NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            string currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
+            var currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
 #else
 			string currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
 #endif
             return currentDefines.Contains(define);
         }
 
-        private void ModifyDefines(string[] definesToRemove, string[] definesToSet, BuildTargetGroup targetGroup)
+        private static void ModifyDefines(string[] definesToRemove, string[] definesToSet, BuildTargetGroup targetGroup)
         {
 #if UNITY_2021_2_OR_NEWER
             var namedBuildTarget = NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            string currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
+            var currentDefines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
 #else
 			string currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
 #endif
-            for (int i = 0; i < definesToRemove.Length; ++i)
+            for (var i = 0; i < definesToRemove.Length; ++i)
             {
                 var define = definesToRemove[i];
                 if (currentDefines.Contains(define))
                     currentDefines = currentDefines.Replace(define + ";", "").Replace(";" + define, "").Replace(define, "");
             }
 
-            for (int i = 0; i < definesToSet.Length; ++i)
+            for (var i = 0; i < definesToSet.Length; ++i)
             {
                 var define = definesToSet[i];
                 if (!currentDefines.Contains(define))
@@ -219,23 +222,22 @@ using System.Linq;
 #endif
         }
 
-        private void SetupLayer()
+        private static void SetupLayer()
         {
             var log = new StringBuilder();
 
-            UnityEngine.Object[] asset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
-
-            if ((asset != null) && (asset.Length > 0))
+            var asset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+            if (asset != null && asset.Length > 0)
             {
                 try
                 {
                     var tagManager = asset[0];
-                    SerializedObject serializedObject = new SerializedObject(asset[0]);
-                    SerializedProperty layers = serializedObject.FindProperty("layers");
+                    var serializedObject = new SerializedObject(asset[0]);
+                    var layers = serializedObject.FindProperty("layers");
 
-                    bool layersChanged = TryUpdateLayer(layers, PlayArea.PLAY_AREA_LAYER_NAME, log);
+                    var layersChanged = TryUpdateLayer(layers, PlayArea.PLAY_AREA_LAYER_NAME, log);
 
-                    EditorUtility.DisplayDialog("Layer Report", log.ToString(), "Ok");
+                    EditorUtility.DisplayDialog("Layer Report", log.ToString(), "OK");
 
                     if (layersChanged)
                     {
@@ -246,7 +248,7 @@ using System.Linq;
                         AssetDatabase.SaveAssets();
                         AssetDatabase.Refresh();
 
-                        Debug.Log($"TagManager saved.");
+                        Debug.Log("TagManager saved");
                     }
                 }
                 catch (Exception e)
@@ -256,37 +258,37 @@ using System.Linq;
             }
             else
             {
-                Debug.LogWarning($"Unable to load ProjectSettings/TagManager.asset");
+                Debug.LogWarning("Unable to load ProjectSettings/TagManager.asset");
             }
         }
 
-        private bool TryUpdateLayer(SerializedProperty layers, string layerName, StringBuilder log)
+        private static bool TryUpdateLayer(SerializedProperty layers, string layerName, StringBuilder log)
         {
 
-            int layer = -1;
+            var layer = -1;
 
             for (var i = 6; i < layers.arraySize; ++i)
             {
                 var layerN = layers.GetArrayElementAtIndex(i).stringValue;
                 if (layerN == layerName)
                 {
-                    log.AppendLine($"Layer \"{layerName}\" already exists at slot {i}");
+                    log.AppendLine(string.Format("Layer \"{0}\" already exists at slot {1}", layerName, 1));
                     return false;
                 }
-                if (layer == -1 && string.IsNullOrWhiteSpace(layerN))
+                if (layer == -1 && string.IsNullOrEmpty(layerN))
                     layer = i;
             }
 
             if (layer == -1)
             {
-                log.AppendLine($"No layer space available for required layer \"{layerName}\". Make space and try again.");
+                log.AppendLine(string.Format("No layer space available for required layer \"{0}\". Make space and try again.", layerName));
                 return false;
             }
             else
             {
                 var property = layers.GetArrayElementAtIndex(layer);
                 property.stringValue = layerName;
-                log.AppendLine($"Layer \"{layerName}\" assigned to slot {layer}");
+                log.AppendLine(string.Format("Layer \"{0}\" assigned to slot {1}", layerName, layer));
                 return true;
             }
         }

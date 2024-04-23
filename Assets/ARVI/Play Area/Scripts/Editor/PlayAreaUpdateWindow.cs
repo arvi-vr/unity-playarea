@@ -1,6 +1,10 @@
 ﻿namespace ARVI.PlayArea
 {
     using System;
+#if !UNITY_2020_1_OR_NEWER
+    using System.Linq;
+    using System.Reflection;
+#endif
     using UnityEditor;
     using UnityEngine;
 
@@ -21,7 +25,7 @@
 
         public static PlayAreaUpdateWindow Show(Version version, string description, DateTime date, string versionURL, bool isNewVersion)
         {
-            PlayAreaUpdateWindow window = GetWindow<PlayAreaUpdateWindow>(true, WINDOW_TITLE, true);
+            var window = GetWindow<PlayAreaUpdateWindow>(true, WINDOW_TITLE, true);
 
             window.position = new Rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
             CenterOnMainWindow(window);
@@ -99,7 +103,7 @@
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 GUILayout.BeginVertical();
-                Color originalColor = GUI.backgroundColor;
+                var originalColor = GUI.backgroundColor;
                 GUI.backgroundColor = new Color(0.5f, 0.5f, 1f);
                 if (GUILayout.Button("Download", GUILayout.Height(30), GUILayout.MaxWidth(150)))
                     Application.OpenURL(versionURL);
@@ -118,9 +122,9 @@
                 }
 
                 GUILayout.FlexibleSpace();
-                using (EditorGUI.ChangeCheckScope changeCheckScope = new EditorGUI.ChangeCheckScope())
+                using (var changeCheckScope = new EditorGUI.ChangeCheckScope())
                 {
-                    bool toggleValue = GUILayout.Toggle(PlayAreaUpdateChecker.ShouldCheckForUpdates, "Automatically check for updates");
+                    var toggleValue = GUILayout.Toggle(PlayAreaUpdateChecker.ShouldCheckForUpdates, "Automatically check for updates");
                     if (changeCheckScope.changed)
                         PlayAreaUpdateChecker.ShouldCheckForUpdates = toggleValue;
                 }
@@ -130,9 +134,9 @@
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
-                using (EditorGUI.ChangeCheckScope changeCheckScope = new EditorGUI.ChangeCheckScope())
+                using (var changeCheckScope = new EditorGUI.ChangeCheckScope())
                 {
-                    bool toggleValue = GUILayout.Toggle(PlayAreaUpdateChecker.ShouldCheckForUpdates, "Automatically check for updates");
+                    var toggleValue = GUILayout.Toggle(PlayAreaUpdateChecker.ShouldCheckForUpdates, "Automatically check for updates");
                     if (changeCheckScope.changed)
                         PlayAreaUpdateChecker.ShouldCheckForUpdates = toggleValue;
                 }
@@ -140,7 +144,7 @@
             }
         }
 
-        private void InitializeStyles()
+        private static void InitializeStyles()
         {
             if (largeStyle == null)
             {

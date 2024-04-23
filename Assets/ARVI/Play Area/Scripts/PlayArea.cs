@@ -39,6 +39,9 @@ namespace ARVI.PlayArea
         [Tooltip("Camera rig transform. Used to synchronize the position and rotation of play area")]
         public Transform cameraRig;
 
+        [Tooltip("Should automatically check tracking components transforms each frame. Set False to do it manually with corresponding methods")]
+        public bool autoUpdateTrackingComponents = true;
+
         [Header("Play Area Settings")]
 
         [SerializeField]
@@ -80,28 +83,6 @@ namespace ARVI.PlayArea
         [SerializeField]
         private float offsetDistance = 0.25f;
 
-        [Header("Out Of Bounds Area Settings")]
-
-        [SerializeField]
-        [Tooltip("Allows to activate or deactivate play area out of bounds mode")]
-        private PlayAreaOutOfBoundsMode outOfBoundsMode = PlayAreaOutOfBoundsMode.Auto;
-
-        [SerializeField]
-        [Tooltip("A GameObject that activates when a player moves outside the play area")]
-        private GameObject outOfBoundsArea;
-
-        [SerializeField]
-        [Tooltip("Size of the square area within which the OutOfBounds area is deactivated")]
-        private float playAreaCenterThreshold = 0.5f;
-
-        [SerializeField]
-        [Tooltip("Render Play Area bounds when OutOfBounds area displayed")]
-        private bool renderPlayAreaWhenOutOfBounds = false;
-
-        [SerializeField]
-        [Tooltip("Apply PostProcessing when rendering the OutOfBounds area")]
-        private bool renderPostProcessingWhenOutOfBounds = false;
-
         [Header("Controllers Velocity Settings")]
 
         [SerializeField]
@@ -120,13 +101,57 @@ namespace ARVI.PlayArea
         [Tooltip("Maximum additional detection distance for controllers when their velocity exceeds the maximum")]
         private float maxControllersVelocityDetectionDistance = 0.2f;
 
-        [Header("Debug")]
+        [Header("Out Of Bounds Area Settings")]
 
         [SerializeField]
+        [Tooltip("Allows to activate or deactivate play area out of bounds mode")]
+        private PlayAreaOutOfBoundsMode outOfBoundsMode = PlayAreaOutOfBoundsMode.Auto;
+
+        [SerializeField]
+        [Tooltip("A GameObject that activates when a player moves outside the play area")]
+        private GameObject outOfBoundsArea;
+
+        [SerializeField]
+        [Tooltip("Size of the square area within which the OutOfBounds area is deactivated")]
+        private float playAreaCenterThreshold = 0.5f;
+
+        [SerializeField] [Tooltip("Render Play Area bounds when OutOfBounds area displayed")]
+        private bool renderPlayAreaWhenOutOfBounds = false;
+
+        [Header("Out Of Bounds Fading Settings")]
+        
+        [SerializeField]
+        private bool canModifyCameraCullingMask = true;
+
+        [SerializeField]
+        private bool canModifyCameraClearFlags = true;
+
+        [SerializeField]
+        private bool canModifyCameraBackgroundColor = true;
+
+        [SerializeField]
+        private bool canModifyCameraPostProcessing = true;
+
+        [Header("Debug")]
+
         [Tooltip("Do not require ARVI SDK initialization. Useful for debugging in the Editor")]
 #pragma warning disable CS0414
-        private bool skipSDKInitialization = false;
+        public bool skipSDKInitialization = false;
 #pragma warning restore CS0414
+
+        [Tooltip("Always draw play area bounds. Useful for debugging")]
+        public bool forceShowPlayArea = false;
+
+        [SerializeField]
+        [Tooltip("Use forced play area size. Useful for debugging when play area rect can''t be retrieved from VR provider")]
+        private bool useForcedPlayAreaSize = false;
+
+        [SerializeField]
+        [Tooltip("Forced play area size if it can''t be retrieved from VR provider")]
+        private Vector2 forcedPlayAreaSize = new Vector2(1f, 1f);
+
+        [SerializeField]
+        private bool verboseLog = false;
 
         [Header("Events")]
 
@@ -182,31 +207,32 @@ namespace ARVI.PlayArea
         private bool shouldCheckPlayArea;
         private bool shouldUseOfBoundsArea;
 
+        private Vector3 playAreaPosition;
+        private Quaternion playAreaRotation;
+
+        private Vector3 leftControllerPosition;
+        private Vector3 rightControllerPosition;
+
+        private Vector3 cameraPosition;
+        private Vector3 cameraForward;
+
         private class CameraSettings
         {
-            public int cullingMask;
-            public CameraClearFlags clearFlags;
-            public Color backgroundColor;
-            public bool renderPostProcessing;
-
-            public CameraSettings(int cullingMask, CameraClearFlags clearFlags, Color backgroundColor, bool renderPostProcessing)
-            {
-                this.cullingMask = cullingMask;
-                this.clearFlags = clearFlags;
-                this.backgroundColor = backgroundColor;
-                this.renderPostProcessing = renderPostProcessing;
-            }
+            public readonly int CullingMask;
+            public readonly CameraClearFlags ClearFlags;
+            public readonly Color BackgroundColor;
+            public readonly bool RenderPostProcessing;
 
             public CameraSettings(Camera camera)
             {
-                if (camera)
-                {
-                    cullingMask = camera.cullingMask;
-                    clearFlags = camera.clearFlags;
-                    backgroundColor = camera.backgroundColor;
-                    var cameraData = camera.GetUniversalAdditionalCameraData();
-                    renderPostProcessing = cameraData.renderPostProcessing;
-                }
+                if (!camera)
+                    return;
+
+                CullingMask = camera.cullingMask;
+                ClearFlags = camera.clearFlags;
+                BackgroundColor = camera.backgroundColor;
+                var cameraData = camera.GetUniversalAdditionalCameraData();
+                RenderPostProcessing = cameraData.renderPostProcessing;
             }
         }
 
@@ -236,10 +262,13 @@ namespace ARVI.PlayArea
             if (!Instance)
             {
                 Instance = this;
-                DontDestroyOnLoad(this);
+                // Use DontDestroyOnLoad only if PlayArea component is on the root GameObject
+                if (!transform.parent)
+                    DontDestroyOnLoad(this);
             }
             else
             {
+                Debug.LogWarning("Another instance of ARVI.PlayArea detected and destroyed");
                 Destroy(this);
                 return;
             }
@@ -254,7 +283,9 @@ namespace ARVI.PlayArea
             cellTextureSizeID = Shader.PropertyToID(CELL_TEXTURE_SIZE);
             insideCellTextureAlphaID = Shader.PropertyToID(INSIDE_CELL_TEXTURE_ALPHA);
 
-            playAreaMaterial = Resources.Load<Material>(PLAY_AREA_MATERIAL_NAME);
+            var resourceMaterial = Resources.Load<Material>(PLAY_AREA_MATERIAL_NAME);
+            if (resourceMaterial)
+                playAreaMaterial = new Material(resourceMaterial);
 
             if (outOfBoundsArea)
                 SetPlayAreaLayerRecursive(outOfBoundsArea.transform);
@@ -262,24 +293,32 @@ namespace ARVI.PlayArea
             ShowOutOfBoundsArea(false);
         }
 
-        protected virtual void Start()
+        protected virtual IEnumerator Start()
         {
             originalCameraSettings = CreateCameraSettings();
+
+            // Should render Play Area when out of bounds?
+            if (renderPlayAreaWhenOutOfBounds)
+                gameObject.layer = LayerMask.NameToLayer(PLAY_AREA_LAYER_NAME);
 
 #if ARVI_PROVIDER_OPENVR || ARVI_PROVIDER_OPENXR
             if (!skipSDKInitialization)
             {
-                // Initialize SDK
-                if (!Integration.Initialize())
-                {
-                    Debug.LogWarning("Failed to start ARVI Play Area because of ARVI SDK is not initialized");
-                    enabled = false;
-                    return;
-                }
+                if (verboseLog)
+                    Debug.Log("Waiting for ARVI Integration initialization");
+                // Wait for integration initialization
+                yield return WaitForIntegrationRoutine();
+            }
+            else
+            {
+                if (verboseLog)
+                    Debug.Log("Skip ARVI Integration initialization");
             }
 
+            if (verboseLog)
+                Debug.Log("Waiting for headset");
             // Wait for headset
-            StartCoroutine(WaitForHeadsetRoutine(() =>
+            yield return WaitForHeadsetRoutine(() =>
             {
                 if (TryGetPlayAreaRect(out playAreaLocalPoints))
                 {
@@ -299,38 +338,90 @@ namespace ARVI.PlayArea
                         playAreaRenderer.receiveShadows = false;
                         playAreaRenderer.lightProbeUsage = LightProbeUsage.Off;
                         playAreaRenderer.material = playAreaMaterial;
-                        // Should render Play Area when out of bounds?
-                        if (renderPlayAreaWhenOutOfBounds)
-                            gameObject.layer = LayerMask.NameToLayer(PLAY_AREA_LAYER_NAME);
+                    }
+                    else
+                    {
+                        if (verboseLog)
+                            Debug.Log("Play area should not be checked");
                     }
 
                     playAreaInitialized = true;
-
                     OnPlayAreaReady?.Invoke();
-
-                    // If nothing to check - disable component
-                    if (!shouldCheckPlayArea && !shouldUseOfBoundsArea)
-                        enabled = false;
+                    if (verboseLog)
+                        Debug.Log("Play area initialized");
                 }
                 else
                 {
                     Debug.LogWarning("Failed to get play area rect");
                     enabled = false;
                 }
-            }));
+            });
 #else
             Debug.LogError("VR provider is not set. Select your provider in \"Provider\" field");
             enabled = false;
+            yield break;
 #endif
+        }
+
+        public void UpdatePlayArea(Vector3 playAreaPosition, Quaternion playAreaRotation)
+        {
+            this.playAreaPosition = playAreaPosition;
+            this.playAreaRotation = playAreaRotation;
+
+            transform.SetPositionAndRotation(playAreaPosition, playAreaRotation);
+        }
+
+        public void UpdateControllers(Vector3 leftControllerPosition, Vector3 rightControllerPosition)
+        {
+            this.leftControllerPosition = leftControllerPosition;
+            this.rightControllerPosition = rightControllerPosition;
+        }
+
+        public void UpdateCamera(Vector3 cameraPosition, Vector3 cameraForward)
+        {
+            this.cameraPosition = cameraPosition;
+            this.cameraForward = cameraForward;
         }
 
         protected virtual void Update()
         {
-            if (playAreaInitialized)
+            if (autoUpdateTrackingComponents)
             {
-                // Synchronize play area position and rotation with camera rig
+                leftControllerPosition = leftController ? leftController.position : Vector3.zero;
+                rightControllerPosition = rightController ? rightController.position : Vector3.zero;
+
+                if (camera)
+                {
+                    cameraPosition = camera.position;
+                    cameraForward = camera.forward;
+                }
+                else
+                {
+                    cameraPosition = Vector3.zero;
+                    cameraForward = Vector3.zero;
+                }
+
                 if (cameraRig)
-                    transform.SetPositionAndRotation(cameraRig.position, cameraRig.rotation);
+                {
+                    cameraRig.GetPositionAndRotation(out playAreaPosition, out playAreaRotation);
+                }
+                else
+                {
+                    playAreaPosition = Vector3.zero;
+                    playAreaRotation = Quaternion.identity;
+                }
+                UpdatePlayArea(playAreaPosition, playAreaRotation);
+            }
+
+            if (!playAreaInitialized)
+                return;
+
+            if (forceShowPlayArea)
+            {
+                ForceDrawPlayAreaBounds();
+            }
+            else
+            {
                 // Update visibility of play area bounds
                 if (shouldCheckPlayArea)
                     CheckPlayAreaBounds();
@@ -338,6 +429,15 @@ namespace ARVI.PlayArea
                 if (shouldUseOfBoundsArea)
                     CheckPlayAreaOutOfBounds();
             }
+        }
+
+        protected virtual void ForceDrawPlayAreaBounds()
+        {
+            if (!playAreaMaterial)
+                return;
+            playAreaMaterial.SetVector(closestSideDirectionID, Vector3.zero);
+            playAreaMaterial.SetFloat(cellTextureSizeID, 1f);
+            playAreaMaterial.SetFloat(insideCellTextureAlphaID, 1f);
         }
 
         protected virtual void CheckPlayAreaBounds()
@@ -348,39 +448,41 @@ namespace ARVI.PlayArea
             calculatedLeftControllerDetectionDistance = Mathf.Lerp(calculatedLeftControllerDetectionDistance, CalculateLeftControllerDetectionDistance(isHeadsetInSafeZone), 2f * Time.unscaledDeltaTime);
             calculatedRightControllerDetectionDistance = Mathf.Lerp(calculatedRightControllerDetectionDistance, CalculateRightControllerDetectionDistance(isHeadsetInSafeZone), 2f * Time.unscaledDeltaTime);
             // Update play area material properties
-            if (playAreaMaterial)
-            {
-                // Update controllers detection distance
-                playAreaMaterial.SetFloat(leftControllerDetectionDistanceID, calculatedLeftControllerDetectionDistance);
-                playAreaMaterial.SetFloat(rightControllerDetectionDistanceID, calculatedRightControllerDetectionDistance);
-                // Update left controller position
-                playAreaMaterial.SetVector(leftControllerPositionID, leftController ? leftController.position : Vector3.zero);
-                // Update right controller position
-                playAreaMaterial.SetVector(rightControllerPositionID, rightController ? rightController.position : Vector3.zero);
-                // Update headset position and direction
-                playAreaMaterial.SetVector(headsetPositionID, camera ? camera.position : Vector3.zero);
-                playAreaMaterial.SetVector(headsetDirectionID, camera ? transform.InverseTransformDirection(camera.forward) : Vector3.zero);
-                // Find closest side
-                if (TryGetClosestSide(transform.InverseTransformPoint(camera.position), out float distanceToSide, out Plane side))
-                {
-                    distanceToSide -= offsetDistance;
-                    playAreaMaterial.SetVector(closestSideDirectionID, side.normal);
-                    playAreaMaterial.SetFloat(cellTextureSizeID, 1f - Mathf.Clamp01(distanceToSide / (minDistanceToStartShowCell - offsetDistance)));
-                    playAreaMaterial.SetFloat(insideCellTextureAlphaID, Mathf.Clamp01(distanceToSide / (minDistanceToStartShowTextureInsideCell - offsetDistance)));
-                }
-            }
+            if (!playAreaMaterial)
+                return;
+            // Update controllers detection distance
+            playAreaMaterial.SetFloat(leftControllerDetectionDistanceID, calculatedLeftControllerDetectionDistance);
+            playAreaMaterial.SetFloat(rightControllerDetectionDistanceID, calculatedRightControllerDetectionDistance);
+            // Update left controller position
+            playAreaMaterial.SetVector(leftControllerPositionID, leftControllerPosition);
+            // Update right controller position
+            playAreaMaterial.SetVector(rightControllerPositionID, rightControllerPosition);
+            // Update headset position and direction
+            playAreaMaterial.SetVector(headsetPositionID, cameraPosition);
+            playAreaMaterial.SetVector(headsetDirectionID, transform.InverseTransformDirection(cameraForward));
+            // Find nearest side
+            float distanceToSide;
+            Plane side;
+            if (!TryGetNearestSide(transform.InverseTransformPoint(cameraPosition), out distanceToSide, out side))
+                return;
+            distanceToSide -= offsetDistance;
+            playAreaMaterial.SetVector(closestSideDirectionID, side.normal);
+            playAreaMaterial.SetFloat(cellTextureSizeID,
+                1f - Mathf.Clamp01(distanceToSide / (minDistanceToStartShowCell - offsetDistance)));
+            playAreaMaterial.SetFloat(insideCellTextureAlphaID,
+                Mathf.Clamp01(distanceToSide / (minDistanceToStartShowTextureInsideCell - offsetDistance)));
         }
 
         protected virtual void CheckPlayAreaOutOfBounds()
         {
             // Check if the player inside the play area
-            var headsetPosition = transform.InverseTransformPoint(camera ? camera.position : Vector3.zero);
+            var headsetPosition = transform.InverseTransformPoint(cameraPosition);
             if (IsPointInGameZone(headsetPosition))
             {
                 // Check if the player near the center of play area
                 if (IsHeadsetNearGameZoneCenter(headsetPosition))
                 {
-                    // Dectivate OutOfBounds area
+                    // Deactivate OutOfBounds area
                     ShowOutOfBoundsArea(false);
                 }
             }
@@ -393,32 +495,46 @@ namespace ARVI.PlayArea
 
         private CameraSettings CreateCameraSettings()
         {
-            if (!this.camera)
+            if (!camera)
                 return null;
-            if (this.camera.TryGetComponent<Camera>(out var camera))
-                return new CameraSettings(camera);
-            else
-                return null;
+
+#if UNITY_2019_2_OR_NEWER
+            return camera.TryGetComponent<Camera>(out var cameraComponent) ? new CameraSettings(cameraComponent) : null;
+#else
+            var cameraComponent = camera.GetComponent<Camera>();
+            return cameraComponent ? new CameraSettings(cameraComponent) : null;
+#endif
         }
 
-        private bool SetPlayAreaCulling(bool culled)
+        protected void SetPlayAreaCulling(bool culled)
         {
             if (originalCameraSettings == null)
-                return false;
-            if (!this.camera)
-                return false;
-            if (!this.camera.TryGetComponent<Camera>(out var camera))
-                return false;
-
-            camera.backgroundColor = culled ? Color.black : originalCameraSettings.backgroundColor;
-            camera.clearFlags = culled ? CameraClearFlags.Color : originalCameraSettings.clearFlags;
-            camera.cullingMask = culled ? LayerMask.GetMask(PLAY_AREA_LAYER_NAME) : originalCameraSettings.cullingMask;
-            var cameraData = camera.GetUniversalAdditionalCameraData();
-            if (culled && !renderPostProcessingWhenOutOfBounds)
-                cameraData.renderPostProcessing = false;
-            else
-                cameraData.renderPostProcessing = originalCameraSettings.renderPostProcessing;
-            return true;
+                return;
+            if (!camera)
+                return;
+#if UNITY_2019_2_OR_NEWER
+            if (!camera.TryGetComponent<Camera>(out var cameraComponent))
+                return;
+#else
+            var cameraComponent = camera.GetComponent<Camera>();
+            if (!cameraComponent)
+                return;
+#endif
+            // Culling Mask
+            if (canModifyCameraCullingMask)
+                cameraComponent.cullingMask = culled ? LayerMask.GetMask(PLAY_AREA_LAYER_NAME) : originalCameraSettings.CullingMask;
+            // Clear Flags
+            if (canModifyCameraClearFlags)
+                cameraComponent.clearFlags = culled ? CameraClearFlags.Color : originalCameraSettings.ClearFlags;
+            // Background Color
+            if (canModifyCameraBackgroundColor)
+                cameraComponent.backgroundColor = culled ? Color.black : originalCameraSettings.BackgroundColor;
+            // Post Processing
+            if (canModifyCameraPostProcessing)
+            {
+                var cameraData = cameraComponent.GetUniversalAdditionalCameraData(); 
+                cameraData.renderPostProcessing = culled ? false : originalCameraSettings.RenderPostProcessing;
+            }
         }
 
         private bool IsHeadsetNearGameZoneCenter(Vector3 headsetPosition)
@@ -426,18 +542,16 @@ namespace ARVI.PlayArea
             return (Mathf.Abs(headsetPosition.x) < playAreaCenterThreshold) && (Mathf.Abs(headsetPosition.z) < playAreaCenterThreshold);
         }
 
-        private bool PolygonContainsPoint(ref Vector2[] polygonPoints, Vector2 point)
+        private static bool PolygonContainsPoint(ref Vector2[] polygonPoints, Vector2 point)
         {
-            int j = polygonPoints.Length - 1;
-            bool inside = false;
-            Vector2 pi;
-            Vector2 pj;
-            for (int i = 0; i < polygonPoints.Length; j = i++)
+            var j = polygonPoints.Length - 1;
+            var inside = false;
+
+            for (var i = 0; i < polygonPoints.Length; j = i++)
             {
-                pi = polygonPoints[i];
-                pj = polygonPoints[j];
-                if (((pi.y <= point.y && point.y < pj.y) || (pj.y <= point.y && point.y < pi.y)) &&
-                    (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x))
+                var pi = polygonPoints[i];
+                var pj = polygonPoints[j];
+                if (((pi.y <= point.y && point.y < pj.y) || (pj.y <= point.y && point.y < pi.y)) &&  point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x)
                     inside = !inside;
             }
             return inside;
@@ -454,37 +568,32 @@ namespace ARVI.PlayArea
             }
 
             if (show)
-                OnPlayerOutOfBounds?.Invoke();
+            {
+                if (OnPlayerOutOfBounds != null)
+                    OnPlayerOutOfBounds.Invoke();
+            }
             else
-                OnPlayerInBounds?.Invoke();
+            {
+                if (OnPlayerInBounds != null)
+                    OnPlayerInBounds.Invoke();
+            }
         }
 
         protected bool IsPointInGameZone(Vector3 point)
         {
-            // входит ли позиция шлема в игровую зону
             return PolygonContainsPoint(ref playAreaLocalPoints, new Vector2(point.x, point.z));
         }
 
         protected virtual void UpdateLeftControllerVelocity()
         {
-            if (leftController)
-            {
-                leftControllerVelocity = (leftController.position - previousLeftControllerPosition).magnitude / Time.unscaledDeltaTime;
-                previousLeftControllerPosition = leftController.position;
-            }
-            else
-                leftControllerVelocity = 0f;
+            leftControllerVelocity = (leftControllerPosition - previousLeftControllerPosition).magnitude / Time.unscaledDeltaTime;
+            previousLeftControllerPosition = leftControllerPosition;
         }
 
         protected virtual void UpdateRightControllerVelocity()
         {
-            if (rightController)
-            {
-                rightControllerVelocity = (rightController.position - previousRightControllerPosition).magnitude / Time.unscaledDeltaTime;
-                previousRightControllerPosition = rightController.position;
-            }
-            else
-                rightControllerVelocity = 0f;
+            rightControllerVelocity = (rightControllerPosition - previousRightControllerPosition).magnitude / Time.unscaledDeltaTime;
+            previousRightControllerPosition = rightControllerPosition;
         }
 
         protected virtual float CalculateLeftControllerDetectionDistance(bool isHeadsetInSafeZone)
@@ -563,20 +672,21 @@ namespace ARVI.PlayArea
 
         protected virtual bool HasOwnPlayArea(InputDevice headset)
         {
-            foreach (string modelName in headsetsWithOwnPlayArea)
-                if (headset.name.Contains(modelName, StringComparison.InvariantCultureIgnoreCase))
+            var headsetName = headset.name.ToLowerInvariant();
+            foreach (var modelName in headsetsWithOwnPlayArea)
+                if (headsetName.Contains(modelName.ToLowerInvariant()))
                     return true;
             return false;
         }
 
-        private float GetTotalLength(ref Vector2[] playAreaPoints)
+        private static float GetTotalLength(ref Vector2[] playAreaPoints)
         {
-            float totalLength = 0f;
+            var totalLength = 0f;
 
-            for (int i = 0; i < playAreaPoints.Length; i++)
+            for (var i = 0; i < playAreaPoints.Length; i++)
             {
-                Vector2 startPoint = playAreaPoints[i];
-                Vector2 endPoint = playAreaPoints[(i + 1) % playAreaPoints.Length];
+                var startPoint = playAreaPoints[i];
+                var endPoint = playAreaPoints[(i + 1) % playAreaPoints.Length];
 
                 totalLength += Vector2.Distance(startPoint, endPoint);
             }
@@ -586,30 +696,31 @@ namespace ARVI.PlayArea
 
         protected virtual Mesh CreatePlayAreaMesh(Vector2[] playAreaPoints, float height)
         {
-            int pointsCount = playAreaPoints.Length;
-            if (pointsCount < 2) return null;
+            var pointsCount = playAreaPoints.Length;
+            if (pointsCount < 2)
+                return null;
 
-            float totalLength = GetTotalLength(ref playAreaPoints);
-            float accumulatedLength = 0f;
+            var totalLength = GetTotalLength(ref playAreaPoints);
+            var accumulatedLength = 0f;
 
-            List<Vector3> verticesList = new List<Vector3>();
-            List<int> trianglesList = new List<int>();
-            List<Vector2> uvsList = new List<Vector2>();
-            List<Vector2> uvs2List = new List<Vector2>();
+            var verticesList = new List<Vector3>();
+            var trianglesList = new List<int>();
+            var uvsList = new List<Vector2>();
+            var uvs2List = new List<Vector2>();
 
-            for (int i = 0; i < pointsCount; i++)
+            for (var i = 0; i < pointsCount; i++)
             {
-                Vector2 startPoint = playAreaPoints[i];
-                Vector2 endPoint = playAreaPoints[(i + 1) % pointsCount];
+                var startPoint = playAreaPoints[i];
+                var endPoint = playAreaPoints[(i + 1) % pointsCount];
 
-                Vector3[] vertices = new Vector3[4];
+                var vertices = new Vector3[4];
                 vertices[0] = new Vector3(startPoint.x, 0, startPoint.y);
                 vertices[1] = new Vector3(startPoint.x, height, startPoint.y);
                 vertices[2] = new Vector3(endPoint.x, height, endPoint.y);
                 vertices[3] = new Vector3(endPoint.x, 0, endPoint.y);
 
-                int[] triangles = new int[6];
-                int baseIndex = verticesList.Count;
+                var triangles = new int[6];
+                var baseIndex = verticesList.Count;
                 triangles[0] = baseIndex;
                 triangles[1] = baseIndex + 1;
                 triangles[2] = baseIndex + 2;
@@ -617,15 +728,15 @@ namespace ARVI.PlayArea
                 triangles[4] = baseIndex + 3;
                 triangles[5] = baseIndex;
 
-                float startUV = accumulatedLength / totalLength;
-                float endUV = (accumulatedLength + Vector2.Distance(startPoint, endPoint)) / totalLength;
-                Vector2[] uvs = new Vector2[4];
+                var startUV = accumulatedLength / totalLength;
+                var endUV = (accumulatedLength + Vector2.Distance(startPoint, endPoint)) / totalLength;
+                var uvs = new Vector2[4];
                 uvs[0] = new Vector2(startUV, 0);
                 uvs[1] = new Vector2(startUV, height / totalLength);
                 uvs[2] = new Vector2(endUV, height / totalLength);
                 uvs[3] = new Vector2(endUV, 0);
-                
-                Vector2[] uvs2 = new Vector2[4];
+
+                var uvs2 = new Vector2[4];
                 uvs2[0] = new Vector2(0, 0); 
                 uvs2[1] = new Vector2(1, 1); 
                 uvs2[2] = new Vector2(1, 1);
@@ -640,9 +751,9 @@ namespace ARVI.PlayArea
                 accumulatedLength += Vector2.Distance(startPoint, endPoint);
             }
 
-            playAreaSides = CreatePlanes(playAreaPoints, CalculateCenter(playAreaPoints));
-            
-            Mesh mesh = new Mesh();
+            playAreaSides = CreatePlanes(ref playAreaPoints, CalculateCenter(ref playAreaPoints));
+
+            var mesh = new Mesh();
             mesh.SetVertices(verticesList);
             mesh.SetTriangles(trianglesList, 0);
             mesh.SetUVs(0, uvsList);
@@ -653,35 +764,34 @@ namespace ARVI.PlayArea
             return mesh;
         }
         
-        private Vector2 CalculateCenter(Vector2[] points)
+        private static Vector2 CalculateCenter(ref Vector2[] points)
         {
-            Vector2 center = Vector2.zero;
+            var center = Vector2.zero;
             foreach (var point in points)
-            {
                 center += point;
-            }
+
             center /= points.Length;
             return center;
         }
         
-        private Plane[] CreatePlanes(Vector2[] points, Vector3 center)
+        private static Plane[] CreatePlanes(ref Vector2[] points, Vector3 center)
         {
-            int pointsCount = points.Length;
-            Plane[] planes = new Plane[pointsCount];
+            var pointsCount = points.Length;
+            var planes = new Plane[pointsCount];
 
-            for (int i = 0; i < pointsCount; i++)
+            for (var i = 0; i < pointsCount; i++)
             {
-                Vector2 startPoint = points[i];
-                Vector2 endPoint = points[(i + 1) % pointsCount];
+                var startPoint = points[i];
+                var endPoint = points[(i + 1) % pointsCount];
 
-                Vector3 start3D = new Vector3(startPoint.x, 0, startPoint.y);
-                Vector3 end3D = new Vector3(endPoint.x, 0, endPoint.y);
+                var start3D = new Vector3(startPoint.x, 0, startPoint.y);
+                var end3D = new Vector3(endPoint.x, 0, endPoint.y);
 
-                Vector3 dir = (end3D - start3D).normalized;
-                Vector3 normal = Vector3.Cross(dir, Vector3.up);
+                var dir = (end3D - start3D).normalized;
+                var normal = Vector3.Cross(dir, Vector3.up);
 
-                Vector3 middlePoint = (start3D + end3D) * 0.5f;
-                Vector3 directionToCenter = center - middlePoint;
+                var middlePoint = (start3D + end3D) * 0.5f;
+                var directionToCenter = center - middlePoint;
                 if (Vector3.Dot(normal, directionToCenter) < 0f)
                     normal = -normal;
 
@@ -691,18 +801,18 @@ namespace ARVI.PlayArea
             return planes;
         }
 
-        private bool TryGetClosestSide(Vector3 position, out float closestDistance, out Plane side)
+        private bool TryGetNearestSide(Vector3 position, out float nearestDistance, out Plane side)
         {
-            side = default;
-            closestDistance = float.MaxValue;
-            bool sideFounded = false;
+            side = default(Plane);
+            nearestDistance = float.MaxValue;
+            var sideFounded = false;
 
-            for (int i = 0; i < playAreaSides.Length; i++)
+            for (var i = 0; i < playAreaSides.Length; i++)
             {
-                float distance = Mathf.Abs(playAreaSides[i].GetDistanceToPoint(position));
-                if (distance < closestDistance)
+                var distance = Mathf.Abs(playAreaSides[i].GetDistanceToPoint(position));
+                if (distance < nearestDistance)
                 {
-                    closestDistance = distance;
+                    nearestDistance = distance;
                     side = playAreaSides[i];
                     sideFounded = true;
                 }
@@ -713,26 +823,45 @@ namespace ARVI.PlayArea
 
         protected virtual IEnumerator WaitForHeadsetRoutine(Action onComplete)
         {
-            var wait = new WaitForSecondsRealtime(1f);
+            var wait = new WaitForSecondsRealtime(0.5f);
             while (!HMDDevice.isValid)
                 yield return wait;
-            onComplete?.Invoke();
+            if (onComplete != null)
+                onComplete.Invoke();
+        }
+
+        protected virtual IEnumerator WaitForIntegrationRoutine()
+        {
+            var wait = new WaitForSecondsRealtime(0.5f);
+            while (!Integration.Initialized)
+                yield return wait;
         }
 
         private bool IsHeadsetInSafeZone()
         {
-            var headsetPosition = transform.InverseTransformPoint(camera ? camera.position : Vector3.zero);
+            var headsetPosition = transform.InverseTransformPoint(cameraPosition);
             return (headsetPosition.x < safeZoneWidth && headsetPosition.z < safeZoneDepth);
         }
 
         protected virtual bool TryGetPlayAreaRect(out Vector2[] points)
         {
+            if (verboseLog)
+                Debug.Log("Try to get play area points");
+
+            if (useForcedPlayAreaSize)
+            {
+                points = GetPlayAreaRectWithSize(forcedPlayAreaSize);
+                if (verboseLog)
+                    Debug.Log(string.Format("Forced play area size used. Size is {0}x{1}", forcedPlayAreaSize.x, forcedPlayAreaSize.y));
+                return true;
+            }
+
 #if ARVI_PROVIDER_OPENVR
             return TryGetPlayAreaRectOpenVR(out points);
 #elif ARVI_PROVIDER_OPENXR
             return TryGetPlayAreaRectOpenXR(out points);
 #else
-            points = default;
+            points = default(Vector2[]);
             return false;
 #endif
         }
@@ -741,6 +870,8 @@ namespace ARVI.PlayArea
         protected virtual bool TryGetPlayAreaRectOpenVR(out Vector2[] points)
         {
             points = default;
+            if (verboseLog)
+                Debug.Log("Try to get play area points with OpenVR");
             var chaperone = OpenVR.Chaperone;
             if (chaperone != null)
             {
@@ -749,7 +880,7 @@ namespace ARVI.PlayArea
                 {
                     var playAreaWidth = playAreaRect.vCorners0.v0 - playAreaRect.vCorners1.v0;
                     var playAreaDepth = playAreaRect.vCorners2.v2 - playAreaRect.vCorners1.v2;
-                    bool isStandingMode = (playAreaWidth <= 1.01f) && (playAreaDepth <= 1.01f);
+                    var isStandingMode = (playAreaWidth <= 1.01f) && (playAreaDepth <= 1.01f);
 
                     points = new Vector2[4];
 
@@ -770,7 +901,14 @@ namespace ARVI.PlayArea
                         points[2] = new Vector2(playAreaRect.vCorners2.v0, playAreaRect.vCorners2.v2);
                         points[3] = new Vector2(playAreaRect.vCorners3.v0, playAreaRect.vCorners3.v2);
                     }
+                    if (verboseLog)
+                        Debug.Log("Play area points retrieved");
                     return true;
+                }
+                else
+                {
+                    if (verboseLog)
+                        Debug.LogWarning("Failed to get play area points with GetPlayAreaRect");
                 }
             }
             else
@@ -784,38 +922,51 @@ namespace ARVI.PlayArea
         protected virtual bool TryGetPlayAreaRectOpenXR(out Vector2[] points)
         {
             points = default;
-
+            if (verboseLog)
+                Debug.Log("Try to get play area points with OpenXR");
             var xrGeneralSettings = XRGeneralSettings.Instance;
-            if (xrGeneralSettings)
+            if (!xrGeneralSettings)
+                return false;
+            var xrManagerSettings = xrGeneralSettings.Manager;
+            if (!xrManagerSettings)
+                return false;
+            var xrLoader = xrManagerSettings.activeLoader;
+            if (!xrLoader)
+                return false;
+            var inputSubsystem = xrLoader.GetLoadedSubsystem<XRInputSubsystem>();
+            if (inputSubsystem == null)
+                return false;
+            var boundaryPoints = new List<Vector3>();
+            if (inputSubsystem.TryGetBoundaryPoints(boundaryPoints))
             {
-                var xrManagerSettings = xrGeneralSettings.Manager;
-                if (xrManagerSettings)
-                {
-                    var xrLoader = xrManagerSettings.activeLoader;
-                    if (xrLoader)
-                    {
-                        var inputSubsystem = xrLoader.GetLoadedSubsystem<XRInputSubsystem>();
-                        if (inputSubsystem != null)
-                        {
-                            var boundaryPoints = new List<Vector3>();
-                            if (inputSubsystem.TryGetBoundaryPoints(boundaryPoints))
-                            {
-                                points = new Vector2[boundaryPoints.Count];
-                                for (int i = 0; i < points.Length; ++i)
-                                    points[i] = new Vector2(boundaryPoints[i].x, boundaryPoints[i].z);
-
-                                return true;
-                            }
-                        }
-                    }
-                }
+                points = new Vector2[boundaryPoints.Count];
+                for (var i = 0; i < points.Length; ++i)
+                    points[i] = new Vector2(boundaryPoints[i].x, boundaryPoints[i].z);
+                if (verboseLog)
+                    Debug.Log("Play area points retrieved");
+                return true;
+            }
+            else
+            {
+                if (verboseLog)
+                    Debug.LogWarning("Failed to get play area points with TryGetBoundaryPoints");
             }
 
             return false;
         }
 #endif
+        protected virtual Vector2[] GetPlayAreaRectWithSize(Vector2 size)
+        {
+            return new Vector2[]
+            {
+                new Vector2(size.x / 2, size.y / 2),
+                new Vector2(size.x / 2, -size.y / 2),
+                new Vector2(-size.x / 2, -size.y / 2),
+                new Vector2(-size.x / 2, size.y / 2)
+            };
+        }
 
-        private void SetPlayAreaLayerRecursive(Transform transform, Transform except = null)
+        private static void SetPlayAreaLayerRecursive(Transform transform, Transform except = null)
         {
             var newLayer = LayerMask.NameToLayer(PLAY_AREA_LAYER_NAME);
             if (newLayer < 0)
@@ -824,13 +975,13 @@ namespace ARVI.PlayArea
             SetLayerRecursive(transform, newLayer, except);
         }
 
-        private void SetLayerRecursive(Transform transform, int newLayer, Transform except = null)
+        private static void SetLayerRecursive(Transform transform, int newLayer, Transform except = null)
         {
             if (!transform || transform == except)
                 return;
 
             transform.gameObject.layer = newLayer;
-            for (int i = 0; i < transform.childCount; i++)
+            for (var i = 0; i < transform.childCount; i++)
             {
                 SetLayerRecursive(transform.GetChild(i), newLayer, except);
             }
