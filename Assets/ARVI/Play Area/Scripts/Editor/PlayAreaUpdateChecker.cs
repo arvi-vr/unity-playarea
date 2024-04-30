@@ -66,8 +66,8 @@
         private static bool isManualCheck = false;
 
         private const string LAST_UPDATE_CHECK_KEY = "ARVI.PlayArea.LastUpdateCheck";
-        public const string SKIPPED_VERSION_KEY = "ARVI.PlayArea.SkippedVersion";
-        public const string SHOULD_CHECK_UPDATES_KEY = "ARVI.PlayArea.CheckUpdates";
+        private const string SKIPPED_VERSION_KEY = "ARVI.PlayArea.SkippedVersion";
+        private const string SHOULD_CHECK_UPDATES_KEY = "ARVI.PlayArea.CheckUpdates";
 
 #if UNITY_2017_4_OR_NEWER
         private static UnityWebRequest versionInfoRequest;
@@ -84,7 +84,7 @@
                     if (lastCheckTimeCached)
                         return lastCheckTime;
 
-                    lastCheckTime = DateTime.Parse(EditorPrefs.GetString(LAST_UPDATE_CHECK_KEY, "1/1/1971 00:00:01"), CultureInfo.InvariantCulture);
+                    lastCheckTime = DateTime.Parse(EditorPrefs.GetString(GetLastUpdateCheckKey(), "1/1/1971 00:00:01"), CultureInfo.InvariantCulture);
                     lastCheckTimeCached = true;
                 }
                 catch (FormatException)
@@ -96,7 +96,7 @@
             private set
             {
                 lastCheckTime = value;
-                EditorPrefs.SetString(LAST_UPDATE_CHECK_KEY, lastCheckTime.ToString(CultureInfo.InvariantCulture));
+                EditorPrefs.SetString(GetLastUpdateCheckKey(), lastCheckTime.ToString(CultureInfo.InvariantCulture));
             }
         }
 
@@ -109,7 +109,7 @@
                     if (shouldCheckForUpdatesCached)
                         return shouldCheckForUpdates;
 
-                    shouldCheckForUpdates = EditorPrefs.GetBool(SHOULD_CHECK_UPDATES_KEY, true);
+                    shouldCheckForUpdates = EditorPrefs.GetBool(GetShouldCheckUpdateKey(), true);
                     shouldCheckForUpdatesCached = true;
                 }
                 catch (FormatException)
@@ -121,8 +121,23 @@
             set
             {
                 shouldCheckForUpdates = value;
-                EditorPrefs.SetBool(SHOULD_CHECK_UPDATES_KEY, shouldCheckForUpdates);
+                EditorPrefs.SetBool(GetShouldCheckUpdateKey(), shouldCheckForUpdates);
             }
+        }
+
+        private static string GetLastUpdateCheckKey()
+        {
+            return string.Format("{0}.{1}", LAST_UPDATE_CHECK_KEY, PlayerSettings.productGUID);
+        }
+
+        public static string GetSkippedVersionKey()
+        {
+            return string.Format("{0}.{1}", SKIPPED_VERSION_KEY, PlayerSettings.productGUID);
+        }
+
+        private static string GetShouldCheckUpdateKey()
+        {
+            return string.Format("{0}.{1}", SHOULD_CHECK_UPDATES_KEY, PlayerSettings.productGUID);
         }
 
         static PlayAreaUpdateChecker()
@@ -175,12 +190,12 @@
             var versionInfo = VersionInfo.FromJSON(data);
             var latestVersion = versionInfo.version;
             var currentVersion = new System.Version(PlayArea.Version);
-            var skippedVersion = new System.Version(EditorPrefs.GetString(SKIPPED_VERSION_KEY, PlayArea.Version));
+            var skippedVersion = new System.Version(EditorPrefs.GetString(GetSkippedVersionKey(), PlayArea.Version));
             var isNewVersion = latestVersion > currentVersion;
             if (isManualCheck || (isNewVersion && (latestVersion != skippedVersion)))
             {
                 if (!isManualCheck)
-                    EditorPrefs.DeleteKey(SKIPPED_VERSION_KEY);
+                    EditorPrefs.DeleteKey(GetSkippedVersionKey());
                 PlayAreaUpdateWindow.Show(versionInfo.version, versionInfo.changes, versionInfo.publishedDateTime, versionInfo.html_url, isNewVersion);
                 isManualCheck = false;
             }

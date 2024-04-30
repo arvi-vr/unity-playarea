@@ -117,7 +117,7 @@
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Skip this version", GUILayout.Height(20), GUILayout.MaxWidth(120)))
                 {
-                    EditorPrefs.SetString(PlayAreaUpdateChecker.SKIPPED_VERSION_KEY, version.ToString());
+                    EditorPrefs.SetString(PlayAreaUpdateChecker.GetSkippedVersionKey(), version.ToString());
                     Close();
                 }
 

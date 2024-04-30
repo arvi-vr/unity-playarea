@@ -53,28 +53,32 @@ MonoBehaviour:
   checkingMode: 0
   playAreaHeight: 3
   headsetsWithOwnPlayArea:
-  - Oculus Quest
-  - Vive Elite
-  - Focus3
+  - Oculus
   - Pico Neo
+  - Focus3
+  - Vive Elite
   - Miramar
-  - PICO 4
-  - Head Tracking
+  controllersWithOwnPlayArea:
+  - Oculus
+  - Vive Focus 3
   leftControllerDetectionDistance: 0.01
   rightControllerDetectionDistance: 0.01
-  standingModePlayAreaSize: 1.6
+  minimumPlayAreaSize: 1.25
   minDistanceToStartShowCell: 0.4
   minDistanceToStartShowTextureInsideCell: 0.05
   offsetDistance: 0.25
-  outOfBoundsMode: 0
-  outOfBoundsArea: {fileID: 7718487755673180564}
-  playAreaCenterThreshold: 0.5
-  renderPlayAreaWhenOutOfBounds: 0
-  renderPostProcessingWhenOutOfBounds: 0
   safeZoneWidth: 0.7
   safeZoneDepth: 0.7
   minControllersVelocityToAffectTheGrid: 0.2
   maxControllersVelocityDetectionDistance: 0.2
+  outOfBoundsMode: 0
+  outOfBoundsArea: {fileID: 7718487755673180564}
+  playAreaCenterThreshold: 0.5
+  renderPlayAreaWhenOutOfBounds: 0
+  canModifyCameraCullingMask: 1
+  canModifyCameraClearFlags: 1
+  canModifyCameraBackgroundColor: 1
+  canModifyCameraPostProcessing: 1
   skipSDKInitialization: 0
   forceShowPlayArea: 0
   useForcedPlayAreaSize: 0

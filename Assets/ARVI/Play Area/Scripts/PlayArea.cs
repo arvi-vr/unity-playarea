@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -55,8 +54,12 @@ namespace ARVI.PlayArea
 #pragma warning restore CS0414
 
         [SerializeField]
-        [Tooltip("An array of headset models that have their own play area. For these headsets, the play area will not be checked")]
+        [Tooltip("An array of headset models that have their own play area. Play area will not be checked for these headsets")]
         private string[] headsetsWithOwnPlayArea;
+
+        [SerializeField]
+        [Tooltip("An array of controller models that have their own play area. Play area will not be checked for these controllers")]
+        private string[] controllersWithOwnPlayArea;
 
         [Header("Bounds Detection Settings")]
 
@@ -69,10 +72,8 @@ namespace ARVI.PlayArea
         private float rightControllerDetectionDistance = 0.3f;
 
         [SerializeField]
-        [Tooltip("Play area size in standing mode")]
-#pragma warning disable CS0414
-        private float standingModePlayAreaSize = 1.6f;
-#pragma warning restore CS0414
+        [Tooltip("Minimum allowed play area size. If both sides are less than this value, the size of play area will be increased to this size")]
+        private float minimumPlayAreaSize = 1.25f;
 
         [SerializeField]
         private float minDistanceToStartShowCell = 0.4f;
@@ -115,7 +116,7 @@ namespace ARVI.PlayArea
         [Tooltip("Size of the square area within which the OutOfBounds area is deactivated")]
         private float playAreaCenterThreshold = 0.5f;
 
-        [SerializeField] [Tooltip("Render Play Area bounds when OutOfBounds area displayed")]
+        [SerializeField] [Tooltip("Render play area bounds when OutOfBounds area displayed")]
         private bool renderPlayAreaWhenOutOfBounds = false;
 
         [Header("Out Of Bounds Fading Settings")]
@@ -155,8 +156,11 @@ namespace ARVI.PlayArea
 
         [Header("Events")]
 
-        [Tooltip("The event is raised when the Play Area mesh is created and ready to use")]
+        [Tooltip("The event is raised when the play area is created and ready to use")]
         public UnityEvent OnPlayAreaReady;
+
+        [Tooltip("The event is raised when the play area was changed")]
+        public UnityEvent OnPlayAreaChanged;
 
         [Tooltip("The event is raised when a player leaves to the play area boundaries")]
         public UnityEvent OnPlayerOutOfBounds;
@@ -189,6 +193,8 @@ namespace ARVI.PlayArea
         private int insideCellTextureAlphaID;
 
         private InputDevice hmdDevice;
+        private InputDevice controllerDevice;
+
         private Plane[] playAreaSides;
         private Vector2[] playAreaLocalPoints;
         private bool playAreaInitialized;
@@ -205,7 +211,7 @@ namespace ARVI.PlayArea
         private CameraSettings originalCameraSettings = null;
 
         private bool shouldCheckPlayArea;
-        private bool shouldUseOfBoundsArea;
+        private bool shouldUseOutOfBoundsArea;
 
         private Vector3 playAreaPosition;
         private Quaternion playAreaRotation;
@@ -244,8 +250,43 @@ namespace ARVI.PlayArea
             {
                 if (hmdDevice.isValid)
                     return hmdDevice;
+                // Try to check HMD
                 hmdDevice = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+                if (hmdDevice.isValid)
+                {
+                    if (verboseLog)
+                        Debug.Log(string.Format("Headset: {0}", hmdDevice.name));
+                }
                 return hmdDevice;
+            }
+        }
+
+        public InputDevice ControllerDevice
+        {
+            get
+            {
+                if (controllerDevice.isValid)
+                    return controllerDevice;
+                // Try to check left controller
+                var leftHand = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+                if (leftHand.isValid)
+                {
+                    controllerDevice = leftHand;
+                    if (verboseLog)
+                        Debug.Log(string.Format("{0} connected", leftHand.name));
+                    return leftHand;
+                }
+                // Try to check right controller
+                var rightHand = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+                if (rightHand.isValid)
+                {
+                    controllerDevice = rightHand;
+                    if (verboseLog)
+                        Debug.Log(string.Format("{0} connected", rightHand.name));
+                    return rightHand;
+                }
+
+                return default(InputDevice);
             }
         }
 
@@ -297,7 +338,7 @@ namespace ARVI.PlayArea
         {
             originalCameraSettings = CreateCameraSettings();
 
-            // Should render Play Area when out of bounds?
+            // Should render play area when out of bounds?
             if (renderPlayAreaWhenOutOfBounds)
                 gameObject.layer = LayerMask.NameToLayer(PLAY_AREA_LAYER_NAME);
 
@@ -318,32 +359,29 @@ namespace ARVI.PlayArea
             if (verboseLog)
                 Debug.Log("Waiting for headset");
             // Wait for headset
-            yield return WaitForHeadsetRoutine(() =>
+            yield return WaitForHeadsetRoutine();
+#if ARVI_PROVIDER_OPENXR
+            if (verboseLog)
+                Debug.Log("Waiting for controller");
+            // Wait for any controller
+            yield return WaitForControllerRoutine();
+
+            var deviceForCheck = ControllerDevice;
+            shouldCheckPlayArea = ShouldCheckPlayArea(deviceForCheck);
+            shouldUseOutOfBoundsArea = ShouldUseOutOfBoundsArea(deviceForCheck);
+#else
+            var deviceForCheck = HMDDevice;
+            shouldCheckPlayArea = ShouldCheckPlayArea(deviceForCheck);
+            shouldUseOutOfBoundsArea = ShouldUseOutOfBoundsArea(deviceForCheck);
+#endif
+            // Should to check the play area?
+            if (shouldCheckPlayArea)
             {
+                // Try to get play area points
                 if (TryGetPlayAreaRect(out playAreaLocalPoints))
                 {
-                    shouldCheckPlayArea = ShouldCheckPlayArea();
-                    shouldUseOfBoundsArea = ShouldUseOutOfBoundsArea();
-
-                    if (shouldCheckPlayArea)
-                    {
-                        var playAreaMesh = CreatePlayAreaMesh(playAreaLocalPoints, playAreaHeight);
-                        // Play area MeshFilter
-                        var playAreaMeshMeshFilter = gameObject.AddComponent<MeshFilter>();
-                        playAreaMeshMeshFilter.mesh = playAreaMesh;
-                        // Play area MeshRenderer
-                        var playAreaRenderer = gameObject.AddComponent<MeshRenderer>();
-                        playAreaRenderer.shadowCastingMode = ShadowCastingMode.Off;
-                        playAreaRenderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
-                        playAreaRenderer.receiveShadows = false;
-                        playAreaRenderer.lightProbeUsage = LightProbeUsage.Off;
-                        playAreaRenderer.material = playAreaMaterial;
-                    }
-                    else
-                    {
-                        if (verboseLog)
-                            Debug.Log("Play area should not be checked");
-                    }
+                    // Create play area
+                    CreatePlayArea(playAreaLocalPoints, playAreaHeight);
 
                     playAreaInitialized = true;
                     OnPlayAreaReady?.Invoke();
@@ -355,12 +393,65 @@ namespace ARVI.PlayArea
                     Debug.LogWarning("Failed to get play area rect");
                     enabled = false;
                 }
-            });
+#if ARVI_PROVIDER_OPENXR
+                // For OpenXR subscribe to play area events
+                if (!useForcedPlayAreaSize)
+                {
+                    if (TryGetXRInputSubsystem(out var inputSubsystem))
+                    {
+                        inputSubsystem.boundaryChanged += HandleInputSubsystemBoundaryChanged;
+                        inputSubsystem.trackingOriginUpdated += HandleInputSubsystemTrackingOriginUpdated;
+                    }
+                }
+#endif
+            }
+            else
+            {
+                if (verboseLog)
+                    Debug.Log("Play area should not be checked");
+                enabled = false;
+            }
 #else
             Debug.LogError("VR provider is not set. Select your provider in \"Provider\" field");
             enabled = false;
             yield break;
 #endif
+        }
+
+#if ARVI_PROVIDER_OPENXR
+        protected virtual void OnDestroy()
+        {
+            // For OpenXR unsubscribe from play area events
+            if (!useForcedPlayAreaSize)
+            {
+                if (TryGetXRInputSubsystem(out var inputSubsystem))
+                {
+                    inputSubsystem.boundaryChanged -= HandleInputSubsystemBoundaryChanged;
+                    inputSubsystem.trackingOriginUpdated -= HandleInputSubsystemTrackingOriginUpdated;
+                }
+            }
+        }
+#endif
+
+        protected virtual void CreatePlayArea(Vector2[] points, float height)
+        {
+            if (verboseLog)
+                Debug.Log("Create Play Area object");
+            // Create/Update MeshFilter
+            var playAreaMesh = CreatePlayAreaMesh(points, height);
+            if (!TryGetComponent(out MeshFilter meshFilter))
+                meshFilter = gameObject.AddComponent<MeshFilter>();
+            meshFilter.mesh = playAreaMesh;
+            // Create/Update MeshRenderer
+            if (!TryGetComponent(out MeshRenderer meshRenderer))
+            {
+                meshRenderer = gameObject.AddComponent<MeshRenderer>();
+                meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                meshRenderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                meshRenderer.receiveShadows = false;
+                meshRenderer.lightProbeUsage = LightProbeUsage.Off;
+                meshRenderer.material = playAreaMaterial;
+            }
         }
 
         public void UpdatePlayArea(Vector3 playAreaPosition, Quaternion playAreaRotation)
@@ -403,7 +494,12 @@ namespace ARVI.PlayArea
 
                 if (cameraRig)
                 {
+#if UNITY_2021_3_OR_NEWER
                     cameraRig.GetPositionAndRotation(out playAreaPosition, out playAreaRotation);
+#else
+                    playAreaPosition = cameraRig.position;
+                    playAreaRotation = cameraRig.rotation;
+#endif
                 }
                 else
                 {
@@ -426,11 +522,10 @@ namespace ARVI.PlayArea
                 if (shouldCheckPlayArea)
                     CheckPlayAreaBounds();
                 // Check if player moves out of play area bounds
-                if (shouldUseOfBoundsArea)
+                if (shouldUseOutOfBoundsArea)
                     CheckPlayAreaOutOfBounds();
             }
         }
-
         protected virtual void ForceDrawPlayAreaBounds()
         {
             if (!playAreaMaterial)
@@ -467,20 +562,18 @@ namespace ARVI.PlayArea
                 return;
             distanceToSide -= offsetDistance;
             playAreaMaterial.SetVector(closestSideDirectionID, side.normal);
-            playAreaMaterial.SetFloat(cellTextureSizeID,
-                1f - Mathf.Clamp01(distanceToSide / (minDistanceToStartShowCell - offsetDistance)));
-            playAreaMaterial.SetFloat(insideCellTextureAlphaID,
-                Mathf.Clamp01(distanceToSide / (minDistanceToStartShowTextureInsideCell - offsetDistance)));
+            playAreaMaterial.SetFloat(cellTextureSizeID, 1f - Mathf.Clamp01(distanceToSide / (minDistanceToStartShowCell - offsetDistance)));
+            playAreaMaterial.SetFloat(insideCellTextureAlphaID, Mathf.Clamp01(distanceToSide / (minDistanceToStartShowTextureInsideCell - offsetDistance)));
         }
 
         protected virtual void CheckPlayAreaOutOfBounds()
         {
             // Check if the player inside the play area
             var headsetPosition = transform.InverseTransformPoint(cameraPosition);
-            if (IsPointInGameZone(headsetPosition))
+            if (IsPointInPlayArea(headsetPosition))
             {
                 // Check if the player near the center of play area
-                if (IsHeadsetNearGameZoneCenter(headsetPosition))
+                if (IsHeadsetNearPlayAreaCenter(headsetPosition))
                 {
                     // Deactivate OutOfBounds area
                     ShowOutOfBoundsArea(false);
@@ -537,9 +630,9 @@ namespace ARVI.PlayArea
             }
         }
 
-        private bool IsHeadsetNearGameZoneCenter(Vector3 headsetPosition)
+        private bool IsHeadsetNearPlayAreaCenter(Vector3 headsetPosition)
         {
-            return (Mathf.Abs(headsetPosition.x) < playAreaCenterThreshold) && (Mathf.Abs(headsetPosition.z) < playAreaCenterThreshold);
+            return Mathf.Abs(headsetPosition.x) < playAreaCenterThreshold && Mathf.Abs(headsetPosition.z) < playAreaCenterThreshold;
         }
 
         private static bool PolygonContainsPoint(ref Vector2[] polygonPoints, Vector2 point)
@@ -579,7 +672,7 @@ namespace ARVI.PlayArea
             }
         }
 
-        protected bool IsPointInGameZone(Vector3 point)
+        protected bool IsPointInPlayArea(Vector3 point)
         {
             return PolygonContainsPoint(ref playAreaLocalPoints, new Vector2(point.x, point.z));
         }
@@ -616,7 +709,7 @@ namespace ARVI.PlayArea
                 return rightControllerDetectionDistance;
         }
 
-        protected virtual bool ShouldCheckPlayArea()
+        protected virtual bool ShouldCheckPlayArea(InputDevice device)
         {
             // Get play area checking mode from SDK
             var mode = Integration.PlayAreaCheckingMode;
@@ -636,14 +729,14 @@ namespace ARVI.PlayArea
                             case PlayAreaCheckingMode.Disabled:
                                 return false;
                             default:
-                                // Check whether headset has its own play area
-                                return !HasOwnPlayArea(HMDDevice);
+                                // Check whether device has its own play area
+                                return !HasOwnPlayArea(device);
                         }
                     }
             }
         }
 
-        protected virtual bool ShouldUseOutOfBoundsArea()
+        protected virtual bool ShouldUseOutOfBoundsArea(InputDevice device)
         {
             // Get play area out of bounds mode from SDK
             var mode = Integration.PlayAreaOutOfBoundsMode;
@@ -663,19 +756,28 @@ namespace ARVI.PlayArea
                             case PlayAreaOutOfBoundsMode.Ignore:
                                 return false;
                             default:
-                                // Check whether headset has its own play area
-                                return !HasOwnPlayArea(HMDDevice);
+                                // Check whether device has its own play area
+                                return !HasOwnPlayArea(device);
                         }
                     }
             }
         }
 
-        protected virtual bool HasOwnPlayArea(InputDevice headset)
+        protected virtual bool HasOwnPlayArea(InputDevice device)
         {
-            var headsetName = headset.name.ToLowerInvariant();
-            foreach (var modelName in headsetsWithOwnPlayArea)
-                if (headsetName.Contains(modelName.ToLowerInvariant()))
+#if ARVI_PROVIDER_OPENVR
+            var headsetName = device.name.ToLowerInvariant();
+            foreach (var headsetWithOwnPlayArea in headsetsWithOwnPlayArea)
+                if (headsetName.Contains(headsetWithOwnPlayArea.ToLowerInvariant()))
                     return true;
+#endif
+
+#if ARVI_PROVIDER_OPENXR
+            var controllerName = device.name.ToLowerInvariant();
+            foreach (var controllerWithOwnPlayArea in controllersWithOwnPlayArea)
+                if (controllerName.Contains(controllerWithOwnPlayArea.ToLowerInvariant()))
+                    return true;
+#endif
             return false;
         }
 
@@ -821,14 +923,21 @@ namespace ARVI.PlayArea
             return sideFounded;
         }
 
-        protected virtual IEnumerator WaitForHeadsetRoutine(Action onComplete)
+        protected virtual IEnumerator WaitForHeadsetRoutine()
         {
             var wait = new WaitForSecondsRealtime(0.5f);
             while (!HMDDevice.isValid)
                 yield return wait;
-            if (onComplete != null)
-                onComplete.Invoke();
         }
+
+#if ARVI_PROVIDER_OPENXR
+        protected virtual IEnumerator WaitForControllerRoutine()
+        {
+            var wait = new WaitForSecondsRealtime(0.5f);
+            while (!ControllerDevice.isValid)
+                yield return wait;
+        }
+#endif
 
         protected virtual IEnumerator WaitForIntegrationRoutine()
         {
@@ -840,30 +949,63 @@ namespace ARVI.PlayArea
         private bool IsHeadsetInSafeZone()
         {
             var headsetPosition = transform.InverseTransformPoint(cameraPosition);
-            return (headsetPosition.x < safeZoneWidth && headsetPosition.z < safeZoneDepth);
+            return headsetPosition.x < safeZoneWidth && headsetPosition.z < safeZoneDepth;
         }
 
         protected virtual bool TryGetPlayAreaRect(out Vector2[] points)
         {
+            var result = false;
+
             if (verboseLog)
                 Debug.Log("Try to get play area points");
-
+            
             if (useForcedPlayAreaSize)
             {
                 points = GetPlayAreaRectWithSize(forcedPlayAreaSize);
                 if (verboseLog)
                     Debug.Log(string.Format("Forced play area size used. Size is {0}x{1}", forcedPlayAreaSize.x, forcedPlayAreaSize.y));
-                return true;
+                result = true;
+            }
+            else
+            {
+#if ARVI_PROVIDER_OPENVR
+                result = TryGetPlayAreaRectOpenVR(out points);
+#elif ARVI_PROVIDER_OPENXR
+                result = TryGetPlayAreaRectOpenXR(out points);
+#else
+                points = default(Vector2[]);
+                result = false;
+#endif
+            }
+            /*
+             * Points should be in this order:
+             *          |Y
+             *          |
+             *     1    |    2
+             *----------|----------X
+             *          |
+             *     0    |    3
+             *          |
+             */
+
+            if (result && points.Length > 2)
+            {
+                // Check for minimum play area size
+                var playAreaSide1 = Mathf.Abs(points[2].x - points[1].x);
+                var playAreaSide2 = Mathf.Abs(points[1].y - points[0].y);
+
+                if (verboseLog)
+                    Debug.Log(string.Format("Play area size is {0}x{1}", playAreaSide1, playAreaSide2));
+
+                if (playAreaSide1 < minimumPlayAreaSize && playAreaSide2 < minimumPlayAreaSize)
+                {
+                    if (verboseLog)
+                        Debug.LogWarning(string.Format("Play area size is too small and will be increased to {0}x{0}", minimumPlayAreaSize));
+                    points = GetPlayAreaRectWithSize(new Vector2(minimumPlayAreaSize, minimumPlayAreaSize));
+                }
             }
 
-#if ARVI_PROVIDER_OPENVR
-            return TryGetPlayAreaRectOpenVR(out points);
-#elif ARVI_PROVIDER_OPENXR
-            return TryGetPlayAreaRectOpenXR(out points);
-#else
-            points = default(Vector2[]);
-            return false;
-#endif
+            return result;
         }
 
 #if ARVI_PROVIDER_OPENVR
@@ -878,38 +1020,20 @@ namespace ARVI.PlayArea
                 HmdQuad_t playAreaRect = default;
                 if (chaperone.GetPlayAreaRect(ref playAreaRect))
                 {
-                    var playAreaWidth = playAreaRect.vCorners0.v0 - playAreaRect.vCorners1.v0;
-                    var playAreaDepth = playAreaRect.vCorners2.v2 - playAreaRect.vCorners1.v2;
-                    var isStandingMode = (playAreaWidth <= 1.01f) && (playAreaDepth <= 1.01f);
-
-                    points = new Vector2[4];
-
-                    if (isStandingMode)
+                    points = new Vector2[]
                     {
-                        playAreaWidth = Mathf.Max(playAreaWidth, standingModePlayAreaSize);
-                        playAreaDepth = Mathf.Max(playAreaDepth, standingModePlayAreaSize);
+                        new Vector2(playAreaRect.vCorners1.v0, playAreaRect.vCorners1.v2),
+                        new Vector2(playAreaRect.vCorners2.v0, playAreaRect.vCorners2.v2),
+                        new Vector2(playAreaRect.vCorners3.v0, playAreaRect.vCorners3.v2),
+                        new Vector2(playAreaRect.vCorners0.v0, playAreaRect.vCorners0.v2),
+                    };
 
-                        points[0] = new Vector2(-playAreaWidth / 2f, playAreaDepth / 2f);
-                        points[1] = new Vector2(playAreaWidth / 2f, playAreaDepth / 2f);
-                        points[2] = new Vector2(playAreaWidth / 2f, -playAreaDepth / 2f);
-                        points[3] = new Vector2(-playAreaWidth / 2f, -playAreaDepth / 2f);
-                    }
-                    else
-                    {
-                        points[0] = new Vector2(playAreaRect.vCorners0.v0, playAreaRect.vCorners0.v2);
-                        points[1] = new Vector2(playAreaRect.vCorners1.v0, playAreaRect.vCorners1.v2);
-                        points[2] = new Vector2(playAreaRect.vCorners2.v0, playAreaRect.vCorners2.v2);
-                        points[3] = new Vector2(playAreaRect.vCorners3.v0, playAreaRect.vCorners3.v2);
-                    }
                     if (verboseLog)
                         Debug.Log("Play area points retrieved");
                     return true;
                 }
-                else
-                {
-                    if (verboseLog)
-                        Debug.LogWarning("Failed to get play area points with GetPlayAreaRect");
-                }
+                if (verboseLog)
+                    Debug.LogWarning("Failed to get play area points with GetPlayAreaRect");
             }
             else
                 Debug.LogWarning("VR chaperone not found. Is HMD active?");
@@ -919,11 +1043,10 @@ namespace ARVI.PlayArea
 #endif
 
 #if ARVI_PROVIDER_OPENXR
-        protected virtual bool TryGetPlayAreaRectOpenXR(out Vector2[] points)
+        private bool TryGetXRInputSubsystem(out XRInputSubsystem inputSubsystem)
         {
-            points = default;
-            if (verboseLog)
-                Debug.Log("Try to get play area points with OpenXR");
+            inputSubsystem = default(XRInputSubsystem);
+
             var xrGeneralSettings = XRGeneralSettings.Instance;
             if (!xrGeneralSettings)
                 return false;
@@ -933,36 +1056,58 @@ namespace ARVI.PlayArea
             var xrLoader = xrManagerSettings.activeLoader;
             if (!xrLoader)
                 return false;
-            var inputSubsystem = xrLoader.GetLoadedSubsystem<XRInputSubsystem>();
-            if (inputSubsystem == null)
+            inputSubsystem = xrLoader.GetLoadedSubsystem<XRInputSubsystem>();
+            return inputSubsystem != null;
+        }
+
+        protected virtual bool TryGetPlayAreaRectOpenXR(out Vector2[] points)
+        {
+            points = default;
+            if (verboseLog)
+                Debug.Log("Try to get play area points with OpenXR");
+            if (!TryGetXRInputSubsystem(out var inputSubsystem))
                 return false;
-            var boundaryPoints = new List<Vector3>();
-            if (inputSubsystem.TryGetBoundaryPoints(boundaryPoints))
+            var pointsList = new List<Vector3>();
+            if (inputSubsystem.TryGetBoundaryPoints(pointsList))
             {
-                points = new Vector2[boundaryPoints.Count];
+                points = new Vector2[pointsList.Count];
                 for (var i = 0; i < points.Length; ++i)
-                    points[i] = new Vector2(boundaryPoints[i].x, boundaryPoints[i].z);
+                    points[i] = new Vector2(pointsList[i].x, pointsList[i].z);
                 if (verboseLog)
                     Debug.Log("Play area points retrieved");
                 return true;
             }
-            else
-            {
-                if (verboseLog)
-                    Debug.LogWarning("Failed to get play area points with TryGetBoundaryPoints");
-            }
+            if (verboseLog)
+                Debug.LogWarning("Failed to get play area points with TryGetBoundaryPoints");
 
             return false;
+        }
+
+        protected virtual void HandleInputSubsystemBoundaryChanged(XRInputSubsystem inputSubsystem)
+        {
+            // Recreate boundary
+            if (verboseLog)
+                Debug.Log("Play area boundary changed. Try to update play area");
+            // Update play area rect
+            if (TryGetPlayAreaRect(out playAreaLocalPoints))
+                CreatePlayArea(playAreaLocalPoints, playAreaHeight);
+            OnPlayAreaChanged.Invoke();
+        }
+
+        protected virtual void HandleInputSubsystemTrackingOriginUpdated(XRInputSubsystem inputSubsystem)
+        {
+            if (verboseLog)
+                Debug.Log(string .Format("Play area tracking origin mode updated to {0}", inputSubsystem.GetTrackingOriginMode()));
         }
 #endif
         protected virtual Vector2[] GetPlayAreaRectWithSize(Vector2 size)
         {
             return new Vector2[]
             {
-                new Vector2(size.x / 2, size.y / 2),
-                new Vector2(size.x / 2, -size.y / 2),
                 new Vector2(-size.x / 2, -size.y / 2),
-                new Vector2(-size.x / 2, size.y / 2)
+                new Vector2(-size.x / 2, size.y / 2),
+                new Vector2(size.x / 2, size.y / 2),
+                new Vector2(size.x / 2, -size.y / 2)
             };
         }
 
@@ -982,9 +1127,7 @@ namespace ARVI.PlayArea
 
             transform.gameObject.layer = newLayer;
             for (var i = 0; i < transform.childCount; i++)
-            {
                 SetLayerRecursive(transform.GetChild(i), newLayer, except);
-            }
         }
     }
 }
