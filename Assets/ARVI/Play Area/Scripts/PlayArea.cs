@@ -27,16 +27,16 @@ namespace ARVI.PlayArea
         [Header("Tracking Components")]
 
         [Tooltip("Left controller transform")]
-        public Transform leftController;
+        public Transform leftControllerTransform;
 
         [Tooltip("Right controller transform")]
-        public Transform rightController;
+        public Transform rightControllerTransform;
 
         [Tooltip("Camera transform. Usually matches the VR camera transform")]
-        public new Transform camera;
+        public Transform cameraTransform;
 
         [Tooltip("Camera rig transform. Used to synchronize the position and rotation of play area")]
-        public Transform cameraRig;
+        public Transform cameraRigTransform;
 
         [Tooltip("Should automatically check tracking components transforms each frame. Set False to do it manually with corresponding methods")]
         public bool autoUpdateTrackingComponents = true;
@@ -433,6 +433,7 @@ namespace ARVI.PlayArea
         }
 #endif
 
+#if ARVI_PROVIDER_OPENVR || ARVI_PROVIDER_OPENXR
         protected virtual void CreatePlayArea(Vector2[] points, float height)
         {
             if (verboseLog)
@@ -453,6 +454,7 @@ namespace ARVI.PlayArea
                 meshRenderer.material = playAreaMaterial;
             }
         }
+#endif
 
         public void UpdatePlayArea(Vector3 playAreaPosition, Quaternion playAreaRotation)
         {
@@ -478,13 +480,13 @@ namespace ARVI.PlayArea
         {
             if (autoUpdateTrackingComponents)
             {
-                leftControllerPosition = leftController ? leftController.position : Vector3.zero;
-                rightControllerPosition = rightController ? rightController.position : Vector3.zero;
+                leftControllerPosition = leftControllerTransform ? leftControllerTransform.position : Vector3.zero;
+                rightControllerPosition = rightControllerTransform ? rightControllerTransform.position : Vector3.zero;
 
-                if (camera)
+                if (cameraTransform)
                 {
-                    cameraPosition = camera.position;
-                    cameraForward = camera.forward;
+                    cameraPosition = cameraTransform.position;
+                    cameraForward = cameraTransform.forward;
                 }
                 else
                 {
@@ -492,13 +494,13 @@ namespace ARVI.PlayArea
                     cameraForward = Vector3.zero;
                 }
 
-                if (cameraRig)
+                if (cameraRigTransform)
                 {
 #if UNITY_2021_3_OR_NEWER
-                    cameraRig.GetPositionAndRotation(out playAreaPosition, out playAreaRotation);
+                    cameraRigTransform.GetPositionAndRotation(out playAreaPosition, out playAreaRotation);
 #else
-                    playAreaPosition = cameraRig.position;
-                    playAreaRotation = cameraRig.rotation;
+                    playAreaPosition = cameraRigTransform.position;
+                    playAreaRotation = cameraRigTransform.rotation;
 #endif
                 }
                 else
@@ -588,13 +590,13 @@ namespace ARVI.PlayArea
 
         private CameraSettings CreateCameraSettings()
         {
-            if (!camera)
+            if (!cameraTransform)
                 return null;
 
 #if UNITY_2019_2_OR_NEWER
-            return camera.TryGetComponent<Camera>(out var cameraComponent) ? new CameraSettings(cameraComponent) : null;
+            return cameraTransform.TryGetComponent<Camera>(out var cameraComponent) ? new CameraSettings(cameraComponent) : null;
 #else
-            var cameraComponent = camera.GetComponent<Camera>();
+            var cameraComponent = cameraTransform.GetComponent<Camera>();
             return cameraComponent ? new CameraSettings(cameraComponent) : null;
 #endif
         }
@@ -603,13 +605,13 @@ namespace ARVI.PlayArea
         {
             if (originalCameraSettings == null)
                 return;
-            if (!camera)
+            if (!cameraTransform)
                 return;
 #if UNITY_2019_2_OR_NEWER
-            if (!camera.TryGetComponent<Camera>(out var cameraComponent))
+            if (!cameraTransform.TryGetComponent<Camera>(out var cameraComponent))
                 return;
 #else
-            var cameraComponent = camera.GetComponent<Camera>();
+            var cameraComponent = cameraTransform.GetComponent<Camera>();
             if (!cameraComponent)
                 return;
 #endif
