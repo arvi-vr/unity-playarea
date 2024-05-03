@@ -45,10 +45,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c7221e0c9d59b14c8f139fdffa855ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  leftController: {fileID: 0}
-  rightController: {fileID: 0}
-  camera: {fileID: 0}
-  cameraRig: {fileID: 0}
+  leftControllerTransform: {fileID: 0}
+  rightControllerTransform: {fileID: 0}
+  cameraTransform: {fileID: 0}
+  cameraRigTransform: {fileID: 0}
   autoUpdateTrackingComponents: 1
   checkingMode: 0
   playAreaHeight: 3
@@ -63,7 +63,7 @@ MonoBehaviour:
   - Vive Focus 3
   leftControllerDetectionDistance: 0.01
   rightControllerDetectionDistance: 0.01
-  minimumPlayAreaSize: 1.25
+  minimumPlayAreaSize: 2
   minDistanceToStartShowCell: 0.4
   minDistanceToStartShowTextureInsideCell: 0.05
   offsetDistance: 0.25
@@ -85,6 +85,9 @@ MonoBehaviour:
   forcedPlayAreaSize: {x: 1, y: 1}
   verboseLog: 0
   OnPlayAreaReady:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPlayAreaChanged:
     m_PersistentCalls:
       m_Calls: []
   OnPlayerOutOfBounds:

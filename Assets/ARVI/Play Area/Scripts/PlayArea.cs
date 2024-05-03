@@ -73,7 +73,7 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         [Tooltip("Minimum allowed play area size. If both sides are less than this value, the size of play area will be increased to this size")]
-        private float minimumPlayAreaSize = 1.25f;
+        private float minimumPlayAreaSize = 2f;
 
         [SerializeField]
         private float minDistanceToStartShowCell = 0.4f;
