@@ -22,7 +22,7 @@ namespace ARVI.PlayArea
     public class PlayArea : MonoBehaviour
     {
         private const int PLAY_AREA_MAJOR_VERSION = 1;
-        private const int PLAY_AREA_MINOR_VERSION = 0;
+        private const int PLAY_AREA_MINOR_VERSION = 1;
 
         [Header("Tracking Components")]
 
@@ -59,7 +59,7 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         [Tooltip("An array of controller models that have their own play area. Play area will not be checked for these controllers")]
-        private string[] controllersWithOwnPlayArea;
+        private string[] controllersWithOwnPlayArea = default;
 
         [Header("Bounds Detection Settings")]
 
@@ -77,10 +77,10 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         private float minDistanceToStartShowCell = 0.4f;
-        
+
         [SerializeField]
         private float minDistanceToStartShowTextureInsideCell = 0.05f;
-        
+
         [SerializeField]
         private float offsetDistance = 0.25f;
 
@@ -110,7 +110,7 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         [Tooltip("A GameObject that activates when a player moves outside the play area")]
-        private GameObject outOfBoundsArea;
+        private GameObject outOfBoundsArea = null;
 
         [SerializeField]
         [Tooltip("Size of the square area within which the OutOfBounds area is deactivated")]
@@ -120,7 +120,7 @@ namespace ARVI.PlayArea
         private bool renderPlayAreaWhenOutOfBounds = false;
 
         [Header("Out Of Bounds Fading Settings")]
-        
+
         [SerializeField]
         private bool canModifyCameraCullingMask = true;
 
@@ -172,7 +172,6 @@ namespace ARVI.PlayArea
 
         private const string LEFT_CONTROLLER_POSITION_NAME = "_LeftControllerPosition";
         private const string RIGHT_CONTROLLER_POSITION_NAME = "_RightControllerPosition";
-        private const string HEADSET_POSITION_NAME = "_HeadsetPosition";
         private const string LEFT_CONTROLLER_DETECTION_DISTANCE_NAME = "_LeftControllerSphereRadius";
         private const string RIGHT_CONTROLLER_DETECTION_DISTANCE_NAME = "_RightControllerSphereRadius";
         private const string CLOSEST_SIDE_DIRECTION = "_ClosestSideDirection";
@@ -184,7 +183,6 @@ namespace ARVI.PlayArea
 
         private int leftControllerPositionID;
         private int rightControllerPositionID;
-        private int headsetPositionID;
         private int leftControllerDetectionDistanceID;
         private int rightControllerDetectionDistanceID;
         private int closestSideDirectionID;
@@ -208,7 +206,7 @@ namespace ARVI.PlayArea
         private Vector3 previousRightControllerPosition;
         private float calculatedRightControllerDetectionDistance;
 
-        private CameraSettings originalCameraSettings = null;
+        private CameraSettings originalCameraSettings;
 
         private bool shouldCheckPlayArea;
         private bool shouldUseOutOfBoundsArea;
@@ -316,7 +314,6 @@ namespace ARVI.PlayArea
 
             leftControllerPositionID = Shader.PropertyToID(LEFT_CONTROLLER_POSITION_NAME);
             rightControllerPositionID = Shader.PropertyToID(RIGHT_CONTROLLER_POSITION_NAME);
-            headsetPositionID = Shader.PropertyToID(HEADSET_POSITION_NAME);
             leftControllerDetectionDistanceID = Shader.PropertyToID(LEFT_CONTROLLER_DETECTION_DISTANCE_NAME);
             rightControllerDetectionDistanceID = Shader.PropertyToID(RIGHT_CONTROLLER_DETECTION_DISTANCE_NAME);
             closestSideDirectionID = Shader.PropertyToID(CLOSEST_SIDE_DIRECTION);
@@ -381,7 +378,7 @@ namespace ARVI.PlayArea
                 if (TryGetPlayAreaRect(out playAreaLocalPoints))
                 {
                     // Create play area
-                    CreatePlayArea(playAreaLocalPoints, playAreaHeight);
+                    CreatePlayArea(ref playAreaLocalPoints, playAreaHeight);
 
                     playAreaInitialized = true;
                     OnPlayAreaReady?.Invoke();
@@ -399,7 +396,6 @@ namespace ARVI.PlayArea
                 {
                     if (TryGetXRInputSubsystem(out var inputSubsystem))
                     {
-                        inputSubsystem.boundaryChanged += HandleInputSubsystemBoundaryChanged;
                         inputSubsystem.trackingOriginUpdated += HandleInputSubsystemTrackingOriginUpdated;
                     }
                 }
@@ -426,7 +422,6 @@ namespace ARVI.PlayArea
             {
                 if (TryGetXRInputSubsystem(out var inputSubsystem))
                 {
-                    inputSubsystem.boundaryChanged -= HandleInputSubsystemBoundaryChanged;
                     inputSubsystem.trackingOriginUpdated -= HandleInputSubsystemTrackingOriginUpdated;
                 }
             }
@@ -434,12 +429,12 @@ namespace ARVI.PlayArea
 #endif
 
 #if ARVI_PROVIDER_OPENVR || ARVI_PROVIDER_OPENXR
-        protected virtual void CreatePlayArea(Vector2[] points, float height)
+        protected virtual void CreatePlayArea(ref Vector2[] points, float height)
         {
             if (verboseLog)
                 Debug.Log("Create Play Area object");
             // Create/Update MeshFilter
-            var playAreaMesh = CreatePlayAreaMesh(points, height);
+            var playAreaMesh = CreatePlayAreaMesh(ref points, height);
             if (!TryGetComponent(out MeshFilter meshFilter))
                 meshFilter = gameObject.AddComponent<MeshFilter>();
             meshFilter.mesh = playAreaMesh;
@@ -456,10 +451,10 @@ namespace ARVI.PlayArea
         }
 #endif
 
-        public void UpdatePlayArea(Vector3 playAreaPosition, Quaternion playAreaRotation)
+        public void UpdatePlayArea(Vector3 position, Quaternion rotation)
         {
-            this.playAreaPosition = playAreaPosition;
-            this.playAreaRotation = playAreaRotation;
+            playAreaPosition = position;
+            playAreaRotation = rotation;
 
             transform.SetPositionAndRotation(playAreaPosition, playAreaRotation);
         }
@@ -470,10 +465,10 @@ namespace ARVI.PlayArea
             this.rightControllerPosition = rightControllerPosition;
         }
 
-        public void UpdateCamera(Vector3 cameraPosition, Vector3 cameraForward)
+        public void UpdateCamera(Vector3 position, Vector3 forward)
         {
-            this.cameraPosition = cameraPosition;
-            this.cameraForward = cameraForward;
+            cameraPosition = position;
+            cameraForward = forward;
         }
 
         protected virtual void Update()
@@ -555,7 +550,6 @@ namespace ARVI.PlayArea
             // Update right controller position
             playAreaMaterial.SetVector(rightControllerPositionID, rightControllerPosition);
             // Update headset position and direction
-            playAreaMaterial.SetVector(headsetPositionID, cameraPosition);
             playAreaMaterial.SetVector(headsetDirectionID, transform.InverseTransformDirection(cameraForward));
             // Find nearest side
             float distanceToSide;
@@ -627,7 +621,7 @@ namespace ARVI.PlayArea
             // Post Processing
             if (canModifyCameraPostProcessing)
             {
-                var cameraData = cameraComponent.GetUniversalAdditionalCameraData(); 
+                var cameraData = cameraComponent.GetUniversalAdditionalCameraData();
                 cameraData.renderPostProcessing = culled ? false : originalCameraSettings.RenderPostProcessing;
             }
         }
@@ -637,7 +631,7 @@ namespace ARVI.PlayArea
             return Mathf.Abs(headsetPosition.x) < playAreaCenterThreshold && Mathf.Abs(headsetPosition.z) < playAreaCenterThreshold;
         }
 
-        private static bool PolygonContainsPoint(ref Vector2[] polygonPoints, Vector2 point)
+        private static bool PolygonContainsPoint(Vector2[] polygonPoints, Vector2 point)
         {
             var j = polygonPoints.Length - 1;
             var inside = false;
@@ -676,7 +670,7 @@ namespace ARVI.PlayArea
 
         protected bool IsPointInPlayArea(Vector3 point)
         {
-            return PolygonContainsPoint(ref playAreaLocalPoints, new Vector2(point.x, point.z));
+            return PolygonContainsPoint(playAreaLocalPoints, new Vector2(point.x, point.z));
         }
 
         protected virtual void UpdateLeftControllerVelocity()
@@ -798,7 +792,7 @@ namespace ARVI.PlayArea
             return totalLength;
         }
 
-        protected virtual Mesh CreatePlayAreaMesh(Vector2[] playAreaPoints, float height)
+        protected virtual Mesh CreatePlayAreaMesh(ref Vector2[] playAreaPoints, float height)
         {
             var pointsCount = playAreaPoints.Length;
             if (pointsCount < 2)
@@ -841,12 +835,12 @@ namespace ARVI.PlayArea
                 uvs[3] = new Vector2(endUV, 0);
 
                 var uvs2 = new Vector2[4];
-                uvs2[0] = new Vector2(0, 0); 
-                uvs2[1] = new Vector2(1, 1); 
+                uvs2[0] = new Vector2(0, 0);
+                uvs2[1] = new Vector2(1, 1);
                 uvs2[2] = new Vector2(1, 1);
-                uvs2[3] = new Vector2(0, 0); 
+                uvs2[3] = new Vector2(0, 0);
 
-                uvs2List.AddRange(uvs2); 
+                uvs2List.AddRange(uvs2);
 
                 verticesList.AddRange(vertices);
                 trianglesList.AddRange(triangles);
@@ -867,7 +861,7 @@ namespace ARVI.PlayArea
             mesh.RecalculateBounds();
             return mesh;
         }
-        
+
         private static Vector2 CalculateCenter(ref Vector2[] points)
         {
             var center = Vector2.zero;
@@ -877,7 +871,7 @@ namespace ARVI.PlayArea
             center /= points.Length;
             return center;
         }
-        
+
         private static Plane[] CreatePlanes(ref Vector2[] points, Vector3 center)
         {
             var pointsCount = points.Length;
@@ -960,7 +954,7 @@ namespace ARVI.PlayArea
 
             if (verboseLog)
                 Debug.Log("Try to get play area points");
-            
+
             if (useForcedPlayAreaSize)
             {
                 points = GetPlayAreaRectWithSize(forcedPlayAreaSize);
@@ -1045,7 +1039,7 @@ namespace ARVI.PlayArea
 #endif
 
 #if ARVI_PROVIDER_OPENXR
-        private bool TryGetXRInputSubsystem(out XRInputSubsystem inputSubsystem)
+        private static bool TryGetXRInputSubsystem(out XRInputSubsystem inputSubsystem)
         {
             inputSubsystem = default(XRInputSubsystem);
 
@@ -1083,17 +1077,6 @@ namespace ARVI.PlayArea
                 Debug.LogWarning("Failed to get play area points with TryGetBoundaryPoints");
 
             return false;
-        }
-
-        protected virtual void HandleInputSubsystemBoundaryChanged(XRInputSubsystem inputSubsystem)
-        {
-            // Recreate boundary
-            if (verboseLog)
-                Debug.Log("Play area boundary changed. Try to update play area");
-            // Update play area rect
-            if (TryGetPlayAreaRect(out playAreaLocalPoints))
-                CreatePlayArea(playAreaLocalPoints, playAreaHeight);
-            OnPlayAreaChanged.Invoke();
         }
 
         protected virtual void HandleInputSubsystemTrackingOriginUpdated(XRInputSubsystem inputSubsystem)

@@ -54,13 +54,14 @@ MonoBehaviour:
   playAreaHeight: 3
   headsetsWithOwnPlayArea:
   - Oculus
-  - Pico Neo
+  - Pico
   - Focus3
   - Vive Elite
   - Miramar
   controllersWithOwnPlayArea:
   - Oculus
   - Vive Focus 3
+  - Pico
   leftControllerDetectionDistance: 0.01
   rightControllerDetectionDistance: 0.01
   minimumPlayAreaSize: 2

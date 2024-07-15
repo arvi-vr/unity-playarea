@@ -34,46 +34,42 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: ARVI Play Area Material
-  m_Shader: {fileID: -6465566751694194690, guid: 9bea9402e592b6d4788b5ebd6679ad45,
-    type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 9bea9402e592b6d4788b5ebd6679ad45, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _SURFACE_TYPE_TRANSPARENT
+  m_ValidKeywords: []
   m_InvalidKeywords:
   - _RECEIVE_SHADOWS_OFF
+  - _SURFACE_TYPE_TRANSPARENT
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
-  stringTagMap:
-    RenderType: Transparent
+  stringTagMap: {}
   disabledShaderPasses:
-  - DepthOnly
-  - SHADOWCASTER
   - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
     - _CellTexture:
-        m_Texture: {fileID: 2800000, guid: cab303eaa10650345a4af405bde65832, type: 3}
+        m_Texture: {fileID: 2800000, guid: c12f4ff8162df7942aeef91c27c21c9c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GridTex:
-        m_Texture: {fileID: 2800000, guid: f7e771efa548609429de48683f708a22, type: 3}
+        m_Texture: {fileID: 2800000, guid: b9a4a79315a186f4fb6d1d6213ee9fed, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _InsideCellTexture:
         m_Texture: {fileID: 2800000, guid: 6a1a1b43dcf4999459e24a2241933eea, type: 3}
-        m_Scale: {x: -1, y: 1}
-        m_Offset: {x: 1, y: 0}
-    - _InsideCellTexture2:
-        m_Texture: {fileID: 2800000, guid: 00a86d722392d174998711a70650d95d, type: 3}
         m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0.75}
+        m_Offset: {x: 0, y: 0.62}
+    - _InsideCellTexture2:
+        m_Texture: {fileID: 2800000, guid: 56bbe5b80810e54438c2c1b36f9590c6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: -0.62}
     - _InsideCellTexture3:
-        m_Texture: {fileID: 2800000, guid: 67aa4630c2f940248a942aea8daa7ffb, type: 3}
+        m_Texture: {fileID: 2800000, guid: 56bbe5b80810e54438c2c1b36f9590c6, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: -0.75}
     - _MainTex:
@@ -129,6 +125,8 @@ Material:
     - _BorderWidth: 0.135
     - _CastShadows: 0
     - _CellTextureSize: 0
+    - _ControllerSphereHardness: 0.75
+    - _ControllerSphereRadius: 0.5
     - _Cull: 0
     - _Dot: -1
     - _DstBlend: 10
@@ -190,4 +188,3 @@ Material:
     - _Tiling: {r: 8, g: 8, b: 0, a: 0}
     - _Tilling: {r: -5, g: 5, b: 0, a: 0}
   m_BuildTextureStacks: []
-  m_AllowLocking: 1
