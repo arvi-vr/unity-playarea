@@ -59,7 +59,7 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         [Tooltip("An array of controller models that have their own play area. Play area will not be checked for these controllers")]
-        private string[] controllersWithOwnPlayArea = default;
+        private string[] controllersWithOwnPlayArea;
 
         [Header("Bounds Detection Settings")]
 
@@ -110,7 +110,7 @@ namespace ARVI.PlayArea
 
         [SerializeField]
         [Tooltip("A GameObject that activates when a player moves outside the play area")]
-        private GameObject outOfBoundsArea = null;
+        private GameObject outOfBoundsArea;
 
         [SerializeField]
         [Tooltip("Size of the square area within which the OutOfBounds area is deactivated")]
@@ -378,7 +378,7 @@ namespace ARVI.PlayArea
                 if (TryGetPlayAreaRect(out playAreaLocalPoints))
                 {
                     // Create play area
-                    CreatePlayArea(ref playAreaLocalPoints, playAreaHeight);
+                    CreatePlayArea(playAreaLocalPoints, playAreaHeight);
 
                     playAreaInitialized = true;
                     OnPlayAreaReady?.Invoke();
@@ -429,12 +429,12 @@ namespace ARVI.PlayArea
 #endif
 
 #if ARVI_PROVIDER_OPENVR || ARVI_PROVIDER_OPENXR
-        protected virtual void CreatePlayArea(ref Vector2[] points, float height)
+        protected virtual void CreatePlayArea(Vector2[] points, float height)
         {
             if (verboseLog)
                 Debug.Log("Create Play Area object");
             // Create/Update MeshFilter
-            var playAreaMesh = CreatePlayAreaMesh(ref points, height);
+            var playAreaMesh = CreatePlayAreaMesh(points, height);
             if (!TryGetComponent(out MeshFilter meshFilter))
                 meshFilter = gameObject.AddComponent<MeshFilter>();
             meshFilter.mesh = playAreaMesh;
@@ -777,7 +777,7 @@ namespace ARVI.PlayArea
             return false;
         }
 
-        private static float GetTotalLength(ref Vector2[] playAreaPoints)
+        private static float GetTotalLength(Vector2[] playAreaPoints)
         {
             var totalLength = 0f;
 
@@ -792,13 +792,13 @@ namespace ARVI.PlayArea
             return totalLength;
         }
 
-        protected virtual Mesh CreatePlayAreaMesh(ref Vector2[] playAreaPoints, float height)
+        protected virtual Mesh CreatePlayAreaMesh(Vector2[] playAreaPoints, float height)
         {
             var pointsCount = playAreaPoints.Length;
             if (pointsCount < 2)
                 return null;
 
-            var totalLength = GetTotalLength(ref playAreaPoints);
+            var totalLength = GetTotalLength(playAreaPoints);
             var accumulatedLength = 0f;
 
             var verticesList = new List<Vector3>();
@@ -849,7 +849,7 @@ namespace ARVI.PlayArea
                 accumulatedLength += Vector2.Distance(startPoint, endPoint);
             }
 
-            playAreaSides = CreatePlanes(ref playAreaPoints, CalculateCenter(ref playAreaPoints));
+            playAreaSides = CreatePlanes(playAreaPoints, CalculateCenter(playAreaPoints));
 
             var mesh = new Mesh();
             mesh.SetVertices(verticesList);
@@ -862,7 +862,7 @@ namespace ARVI.PlayArea
             return mesh;
         }
 
-        private static Vector2 CalculateCenter(ref Vector2[] points)
+        private static Vector2 CalculateCenter(Vector2[] points)
         {
             var center = Vector2.zero;
             foreach (var point in points)
@@ -872,7 +872,7 @@ namespace ARVI.PlayArea
             return center;
         }
 
-        private static Plane[] CreatePlanes(ref Vector2[] points, Vector3 center)
+        private static Plane[] CreatePlanes(Vector2[] points, Vector3 center)
         {
             var pointsCount = points.Length;
             var planes = new Plane[pointsCount];
